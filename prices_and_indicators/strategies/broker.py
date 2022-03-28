@@ -46,4 +46,4 @@ class Broker:
             elif order["action"] == "wait":
                 pass
             else:
-                raise NotImplementedError
+                raise ValueError
