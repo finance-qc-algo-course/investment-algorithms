@@ -2,11 +2,20 @@ import numpy as np
 import cvxpy as cp
 import functools
 
-class StaticMarkovitz(QCAlgorithm):
+from sklearn.decomposition import PCA
+from sklearn.decomposition import KernelPCA
+from sklearn.covariance import MinCovDet
+
+# import custom_qc500
+
+class FixedReturnMarkovitz(QCAlgorithm):
 
     def Initialize(self):
         self.HISTORY_DAYS = 360
-        self.tickers = [ "AAPL", "GOOGL", "IBM" ]
+        self.DIMRED_KIND = 'pca' # 'mcd'
+        self.DIMRED_FRACTION = 0.5 # XXX
+        self.RETURN_QUANTILE = 0.5 # XXX
+        self.tickers = ['AAPL', 'GOOGL', 'IBM'] # custom_qc500.get_custom_qc500_tickers()
         self.symbols = [ \
                 Symbol.Create(t, SecurityType.Equity, Market.USA) \
                 for t in self.tickers \
@@ -18,16 +27,18 @@ class StaticMarkovitz(QCAlgorithm):
         # (W.T @ Sigma @ W - RiskTol * W.T @ Mu) -> min
         self.count = len(self.symbols)
         self.sigma = np.zeros((self.count, self.count)) # XXX ? np.eye(count)
-        self.mu = np.zeros(self.count)
-        self.risk_tol = 0.1
+        self.mu = np.ones(self.count)
         self.weights = np.divide(np.ones(self.count), self.count)
+
+        # The following values have to be reevaluated every rebalance step
+        self.dims = int(self.count * self.DIMRED_FRACTION)
+        self.fixed_return = np.quantile(self.mu, self.RETURN_QUANTILE)
 
         self.SetStartDate(2006,1,1) # Before 2008
         self.SetEndDate(2014,1,1) # After 2008, before 2019
         self.SetCash(100000)  # Set Strategy Cash
 
-        self.MarkowitzUpdateParams()
-        self.MarkowitzRebalance()
+        self.MarkowitzOnMonthStart()
         self.Schedule.On(self.DateRules.MonthStart(), \
                          self.TimeRules.At(0, 0), \
                          self.MarkowitzOnMonthStart)
@@ -50,28 +61,25 @@ class StaticMarkovitz(QCAlgorithm):
     def MarkowitzOptimize(self):
         # XXX sum_weight = np.sum(self.weights)
         # XXX self.weights = np.divide(self.weights, sum_weight)
-        E = np.ones(self.count)
         w = cp.Variable(self.count)
-        prob = cp.Problem( \
-                cp.Minimize( \
-                        0.5 * cp.quad_form(w, self.sigma) - \
-                        self.risk_tol * w.T @ self.mu \
-                    ), \
-                    [ \
-                        w.T >= 0.0, \
-                        E.T @ w == 1.0 \
-                    ]
-                )
+        objective = cp.Minimize(cp.quad_form(w, self.sigma)) # * 0.5
+        constraints = [ \
+                w.T >= 0.0, \
+                w.T @ np.ones(self.count) == 1.0, \
+                w.T @ self.mu == self.fixed_return, \
+            ]
 
+        prob = cp.Problem(objective, constraints)
         prob.solve()
+
         self.weights = w.value
-        pass
 
     def MarkowitzOnData(self, data):
         pass
 
     def MarkowitzOnMonthStart(self):
         self.MarkowitzUpdateParams(days=self.HISTORY_DAYS)
+        self.MarkovitzReduceDimensions(kind=self.DIMRED_KIND)
         self.MarkowitzRebalance()
 
     def MarkowitzUpdateParams(self, days=None):
@@ -89,6 +97,33 @@ class StaticMarkovitz(QCAlgorithm):
                 ]
         self.mu = np.mean(prices, axis=-1)
         self.sigma = np.cov(prices)
+        self.dims = int(self.count * self.DIMRED_FRACTION)
+        self.fixed_return = np.quantile(self.mu, self.RETURN_QUANTILE)
 
         # XXX pass
+
+    def MarkovitzReduceDimensions(self, kind=None):
+        if self.dims == self.count or kind is None:
+            pass # keep `self.sigma` untouched
+        elif kind == 'pca':
+            pca = PCA(n_components=self.dims)
+            pca.fit(self.sigma)
+            self.sigma = pca.get_covariance()
+        elif kind == 'kpca':
+            kpca = KernelPCA(n_components=self.dims, kernel='poly')
+            kpca.fit(self.sigma)
+            # FIXME SKLEARN REQUIRES TO USE eigenvectors_ and eigenvalues_
+            # INSTEAD OF alphas_ AND lambdas_ SINCE v1.0
+            self.sigma = \
+                    kpca.alphas_ @ \
+                    np.diag(kpca.lambdas_) @ \
+                    kpca.alphas_.T
+        elif kind == 'mcd':
+            mcd = MinCovDet()
+            mcd.fit(self.sigma)
+            self.sigma = mcd.covariance_
+        else:
+            raise ValueError('{} is not a valid dimension reduction kind'\
+                    .format(str(self.kind)))
+
 
