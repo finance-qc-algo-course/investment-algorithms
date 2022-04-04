@@ -8,7 +8,8 @@ from torch.utils.data import Subset
 import logging
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print(f"Current device: {device}")
+print("Current device:", device)
+
 
 class StockDataset(Dataset):
     def __init__(self, dataset: torch.tensor, targets: torch.tensor):
@@ -22,6 +23,7 @@ class StockDataset(Dataset):
     
     def __getitem__(self, idx):
         return self.dataset[idx], self.targets[idx]
+
 
 class StockSequenceDataset(Dataset):
     def __init__(self, dataset: torch.tensor, targets: torch.tensor, sequence_length: int):
@@ -38,6 +40,7 @@ class StockSequenceDataset(Dataset):
         from_idx = self.sequence_length * idx
         to_idx = self.sequence_length * (idx + 1)
         return self.dataset[from_idx:to_idx], self.targets[from_idx:to_idx]
+
 
 class StockConvolutionalModel(nn.Module):
     def __init__(self, input_size: int, num_classes: int):
@@ -68,6 +71,7 @@ class StockConvolutionalModel(nn.Module):
         conv_out = self.conv(X)
         return self.linear(conv_out.squeeze().mean(axis=2))
 
+
 class StockDenseModel(nn.Module):
     def __init__(self, input_size: int, num_classes: int):
         super(StockDenseModel, self).__init__()
@@ -82,8 +86,10 @@ class StockDenseModel(nn.Module):
     def forward(self, X):
         return X
 
+
 class StockLSTMModel(nn.Module):
-    def __init__(self, input_size: int, num_classes: int, sequence_length: int, hidden_size: int = 128, num_layers: int = 3):
+    def __init__(self, input_size: int, num_classes: int, sequence_length: int,
+                 hidden_size: int = 128, num_layers: int = 3):
         super(StockLSTMModel, self).__init__()
 
         self.num_layers = num_layers
@@ -115,11 +121,13 @@ def train_batch(model, criterion, optimizer, X_batch, y_batch):
     
     return loss.item()
 
+
 def validate_batch(model, criterion, X_batch, y_batch):
     logits = model(X_batch.to(device)).cpu()
     loss = criterion(logits.view(-1, logits.shape[-1]), y_batch.flatten())
     
     return loss.item()
+
 
 def print_losses(train_loss, validation_loss, epoch):
     print("////////////////////////////////////////")
@@ -128,8 +136,10 @@ def print_losses(train_loss, validation_loss, epoch):
     print("// Validation loss:", np.mean(validation_loss))
     print("////////////////////////////////////////")
 
+
 def train_model(model, criterion, optimizer, train_loader, validation_loader, num_epoch):
     PRINT_PERIOD = 1
+    model = model.to(device)
     
     for epoch in range(1, num_epoch + 1):
         model.train()
@@ -144,3 +154,16 @@ def train_model(model, criterion, optimizer, train_loader, validation_loader, nu
             
         if epoch % PRINT_PERIOD == 0:
             print_losses(train_loss, validation_loss, epoch)
+
+
+def get_test_logits(model, test_loader):
+    model = model.to(device)
+    model.eval()
+
+    all_logits = []
+    all_targets = []
+    for X_batch, y_batch in test_loader:
+        logits = model(X_batch.to(device)).cpu()
+        all_logits.append(logits)
+        all_targets.append(y_batch)
+    return torch.concat(all_logits), torch.concat(all_targets)
