@@ -55,14 +55,7 @@ def lstm_indicators(dataset: pd.DataFrame) -> pd.DataFrame:
         "chop_14", "chop_26", "chop_42",
         "mfi_6", "mfi_14", "mfi_26", "mfi_42",
     ]
-
-    result_dataset = dataset.copy()
-    
-    result_dataset.drop(DROP_COLUMNS, axis=1, inplace=True)
-    result_dataset.reset_index(drop=True, inplace=True)
-    result_dataset.rename(RENAME_COLUMNS, axis=1, inplace=True)
-
-    stock_df = StockDataFrame(result_dataset)
+    stock_df = StockDataFrame(dataset.copy())
     stock_df[INDICATORS]
 
     return stock_df
@@ -73,13 +66,7 @@ def simple_indicators(dataset: pd.DataFrame) -> pd.DataFrame:
         "macd", "macd_xu_macds", "macd_xd_macds", 
         "boll", "high_x_boll_ub", "low_x_boll_lb",
     ]
-
-    result_dataset = dataset.copy()
-
-    result_dataset.reset_index(drop=True, inplace=True)
-    result_dataset.rename(RENAME_COLUMNS, axis=1, inplace=True)
-
-    stock_df = StockDataFrame(result_dataset)
+    stock_df = StockDataFrame(dataset.copy())
     stock_df[INDICATORS]
 
     return stock_df
