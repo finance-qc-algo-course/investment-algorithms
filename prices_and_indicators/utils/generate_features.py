@@ -63,8 +63,10 @@ def lstm_indicators(dataset: pd.DataFrame) -> pd.DataFrame:
 
 def simple_indicators(dataset: pd.DataFrame) -> pd.DataFrame:
     INDICATORS = [
-        "macd", "macd_xu_macds", "macd_xd_macds", 
+        # "volume_10_ema", "volume_10_std", "volume_10_sma",
+        "macd", "macd_xu_macds", "macd_xd_macds",
         "boll", "high_x_boll_ub", "low_x_boll_lb",
+        "rsi", "chop", "mfi"
     ]
     stock_df = StockDataFrame(dataset.copy())
     stock_df[INDICATORS]
