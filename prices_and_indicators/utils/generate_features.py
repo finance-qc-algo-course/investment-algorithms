@@ -1,5 +1,4 @@
 import pandas as pd
-import numpy as np
 from stockstats import StockDataFrame
 
 DROP_COLUMNS = ["t", "n", "vw"]
@@ -62,13 +61,14 @@ def lstm_indicators(dataset: pd.DataFrame) -> pd.DataFrame:
 
 
 def simple_indicators(dataset: pd.DataFrame) -> pd.DataFrame:
-    INDICATORS = [
-        # "volume_10_ema", "volume_10_std", "volume_10_sma",
-        "macd", "macd_xu_macds", "macd_xd_macds",
-        "boll", "high_x_boll_ub", "low_x_boll_lb",
-        "rsi", "chop", "mfi"
+    indicators = [
+        # Indicators
+        "macdh", "boll", "rsi_14", "chop", "mfi",
+        # Statistics
+        "volume_10_ema", "volume_10_sma", "volume_10_mstd",
+        "volume_-5~0_min", "volume_-5~0_max",
+        "high_-5~0_min", "high_-5~0_max",
+        "low_-5~0_min", "low_-5~0_max",
     ]
     stock_df = StockDataFrame(dataset.copy())
-    stock_df[INDICATORS]
-
-    return stock_df
+    return stock_df[list(dataset.columns) + indicators]

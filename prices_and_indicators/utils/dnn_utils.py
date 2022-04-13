@@ -15,8 +15,8 @@ class StockDataset(Dataset):
     def __init__(self, dataset: torch.tensor, targets: torch.tensor):
         assert dataset.shape[0] == targets.shape[0]
         
-        self.dataset = dataset.float()
-        self.targets = targets.long()
+        self.dataset = dataset
+        self.targets = targets
         
     def __len__(self):
         return self.dataset.shape[0]
@@ -72,19 +72,67 @@ class StockConvolutionalModel(nn.Module):
         return self.linear(conv_out.squeeze().mean(axis=2))
 
 
-class StockDenseModel(nn.Module):
+class StockDenseClassificationModel(nn.Module):
     def __init__(self, input_size: int, num_classes: int):
         super(StockDenseModel, self).__init__()
         DROPOUT_PROBA = 0.3
         
         self.sequential = nn.Sequential(
-            # nn.BatchNorm1d(num_features=input_size),
-            # nn.Dropout(p=DROPOUT_PROBA),
-            nn.Linear(in_features=input_size, out_features=num_classes)
+            nn.Linear(in_features=input_size, out_features=input_size // 2),
+            nn.ReLU(),
+            nn.Dropout(p=DROPOUT_PROBA),
+            nn.BatchNorm1d(num_features=input_size // 2),
+            nn.Linear(in_features=input_size // 2, out_features=input_size // 4),
+            nn.ReLU(),
+            nn.Dropout(p=DROPOUT_PROBA),
+            nn.BatchNorm1d(num_features=input_size // 4),
+            nn.Linear(in_features=input_size // 4, out_features=input_size // 8),
+            nn.ReLU(),
+            nn.Dropout(p=DROPOUT_PROBA),
+            nn.BatchNorm1d(num_features=input_size // 8),
+            nn.Linear(in_features=input_size // 8, out_features=input_size // 16),
+            nn.ReLU(),
+            nn.Dropout(p=DROPOUT_PROBA),
+            nn.BatchNorm1d(num_features=input_size // 16),
+            nn.Linear(in_features=input_size // 16, out_features=input_size // 32),
+            nn.ReLU(),
+            nn.Dropout(p=DROPOUT_PROBA),
+            nn.BatchNorm1d(num_features=input_size // 32),
+            nn.Linear(in_features=input_size // 32, out_features=num_classes),
+            nn.Softmax()
         )
         
     def forward(self, X):
-        return X
+        return self.sequential(X)
+
+
+class StockDenseRegressionModel(nn.Module):
+    def __init__(self, input_size: int):
+        super(StockDenseRegressionModel, self).__init__()
+        DROPOUT_PROBA = 0.3
+
+        self.sequential = nn.Sequential(
+            nn.Linear(in_features=input_size, out_features=input_size // 2),
+            nn.ReLU(),
+            nn.Dropout(p=DROPOUT_PROBA),
+            nn.BatchNorm1d(num_features=input_size // 2),
+            nn.Linear(in_features=input_size // 2, out_features=input_size // 4),
+            nn.ReLU(),
+            nn.Dropout(p=DROPOUT_PROBA),
+            nn.BatchNorm1d(num_features=input_size // 4),
+            nn.Linear(in_features=input_size // 4, out_features=input_size // 8),
+            nn.ReLU(),
+            nn.Dropout(p=DROPOUT_PROBA),
+            nn.BatchNorm1d(num_features=input_size // 8),
+            nn.Linear(in_features=input_size // 8, out_features=input_size // 16),
+            nn.ReLU(),
+            nn.Dropout(p=DROPOUT_PROBA),
+            nn.BatchNorm1d(num_features=input_size // 16),
+            nn.Linear(in_features=input_size // 16, out_features=1),
+        )
+
+    def forward(self, X):
+        return self.sequential(X)
 
 
 class StockLSTMModel(nn.Module):
