@@ -21,7 +21,7 @@ class PortfolioOptimizer(BaseEstimator):
                  kernel='poly', kernelgamma=None, kerneldegree=3, kernelcoef0=1, kernelparams=None, 
                  size_of_window=None, size_of_block=None, risk_free_return=1, smooth_function=None, 
                  period_for_pred=120, metric='sharp', VAR_quantile=0.05, period_change_portfolio=360,
-                 is_PCA_preprocessing=False, preprocessing_kept_dim=1):
+                 preprocessing_method=None, preprocessing_kept_dim=1, n_models_MPPCA=1):
         '''
         Функция инициализации.
         
@@ -92,9 +92,9 @@ class PortfolioOptimizer(BaseEstimator):
         self.metric = metric
         self.VAR_quantile = VAR_quantile
         self.period_change_portfolio = period_change_portfolio
-        self.is_PCA_preprocessing = is_PCA_preprocessing
+        self.preprocessing_method = preprocessing_method
         self.preprocessing_kept_dim = preprocessing_kept_dim
-     
+        self.n_models_MPPCA = n_models_MPPCA
     
     def _decrease_risk(self):
         '''
@@ -124,7 +124,6 @@ class PortfolioOptimizer(BaseEstimator):
         opt_weights = w.value
         return opt_weights
     
-    
     def _count_portfolio_return(self, block):
         '''
         Функция подсчета ретёрна портфеля.
@@ -147,7 +146,6 @@ class PortfolioOptimizer(BaseEstimator):
             portfolio_return += one_company_return
         
         return portfolio_return           
-        
         
     def fit(self, X_train, Y_train=None):
         '''
@@ -188,9 +186,15 @@ class PortfolioOptimizer(BaseEstimator):
             self.R = (self.mu_[0] + self.mu_[1]) / 2
         
         # вычисление ковариационной матрицы
-        if self.is_PCA_preprocessing:
+        if self.preprocessing_method == 'PCA':
             self.Sigma_ = cov_matrix_preprocessing.PCA_preprocessing(self.top_returns_.to_numpy(), 
                 min(self.n_components, self.n_top_companies))
+        elif self.preprocessing_method == 'to norm PCA':
+            self.Sigma_ = cov_matrix_preprocessing.to_norm_PCA_preprocessing(self.top_returns_.to_numpy(), 
+                min(self.n_components, self.n_top_companies))
+        elif self.preprocessing_method == 'MPPCA':
+            self.Sigma_ = cov_matrix_preprocessing.MPPCA_preprocessing(self.top_returns_.to_numpy(), 
+                min(self.n_components, self.n_top_companies), self.n_models_MPPCA)
         else:
             self.Sigma_ = self.top_returns_.cov() 
                 
@@ -222,8 +226,7 @@ class PortfolioOptimizer(BaseEstimator):
         self.w_ = self._decrease_risk()
         
         return self
-        
-    
+         
     def _rebalance_fit(self, period):
         '''
         Функция для обучения с учетом новых данных и перебалансировки весов.
@@ -241,8 +244,7 @@ class PortfolioOptimizer(BaseEstimator):
         X_train = pd.concat([self.X_train_, period])
         self.fit(X_train)
         return self
-    
-    
+      
     def predict(self, X_test, Y_test=None):
         '''
         Функция для предсказания ретернов на исторических данных.
@@ -277,6 +279,10 @@ class PortfolioOptimizer(BaseEstimator):
                 period = X_test.iloc[t * self.period_change_portfolio:]
 
             # print(period) ##################
+
+            # print(np.array(self.w_))
+            # print(self.top_returns_.columns)
+            # print(period.index)
         
             # сделаем предсказание на период
             period_return = self._count_portfolio_return(period)
@@ -290,8 +296,7 @@ class PortfolioOptimizer(BaseEstimator):
             
         self.X_train_ = old_X_train
             
-        return all_return     
-    
+        return all_return       
     
     def score(self, X_test, Y_test=None, how=None):
         '''
@@ -314,7 +319,7 @@ class PortfolioOptimizer(BaseEstimator):
         if how is None:
             how = self.metric
         
-        block_return = self.predict(X_test)[0]
+        block_return = self.predict(X_test)
         
         if how == 'VAR':
             sc = np.quantile(block_return, self.VAR_quantile)
