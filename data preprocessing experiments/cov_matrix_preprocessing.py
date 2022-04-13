@@ -23,7 +23,7 @@ def to_norm_PCA_preprocessing(returns: np.ndarray, kept_components: int):
     for col in range(returns.shape[1]):
         loc, scale = sps.laplace.fit(returns[:, col])
         eps = 0.000001
-        returns_norm[:, col] = np.clip(sps.laplace(loc, scale).cdf(returns[:, col]), 0.000001, 1 - eps)
+        returns_norm[:, col] = np.clip(sps.laplace(loc, scale).cdf(returns[:, col]), eps, 1 - eps)
         returns_norm[:, col] = sps.norm().ppf(returns_norm[:, col])
     
     return PCA_preprocessing(returns_norm, kept_components)
