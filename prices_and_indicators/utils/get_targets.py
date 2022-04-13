@@ -18,10 +18,11 @@ class AbnormalTarget(IntEnum):
     NORMAL = 0
     ABNORMAL = 1
 
+
 class StopLossTakeProfit(IntEnum):
-    LOWER_BOUND = 0
+    LOWER_BOUND = -1
     UPPER_BOUND = 1
-    NEUTRAL = 2
+    NEUTRAL = 0
 
 
 def get_direction_with_threshold_target(dataset: pd.DataFrame, time_lag: int, threshold: float) -> pd.Series:
@@ -101,22 +102,28 @@ def get_direction_bollinger(dataset: pd.DataFrame, upper_bound_name: str, lower_
     return pd.Series(target, name="target")
 
 
-def get_first_threshold_bump(dataset: pd.DataFrame, threshold: float, max_time_lag: int):
+def get_first_threshold_bump(dataset: pd.DataFrame, power: float, max_time_lag: int):
     target = np.zeros(dataset.shape[0], dtype=np.float32)
     for idx in range(dataset.shape[0]):
-        first_upper_bound = (dataset["close"].iloc[idx:idx+max_time_lag] - dataset["close"].iloc[idx] > threshold).idxmax()
-        first_lower_bound = (dataset["close"].iloc[idx:idx+max_time_lag] - dataset["close"].iloc[idx] < -threshold).idxmax()
+        diffs = dataset["close"].iloc[idx:idx+max_time_lag] - dataset["close"].iloc[idx]
+        first_upper_bound = (diffs > dataset["close"].iloc[idx] * power).idxmax()
+        first_lower_bound = (diffs < -dataset["close"].iloc[idx] * power).idxmax()
         if first_upper_bound == idx:
             if first_lower_bound == idx:
                 target[idx] = StopLossTakeProfit.NEUTRAL.value
             else:
                 target[idx] = StopLossTakeProfit.LOWER_BOUND.value
-        elif first_lower_bound == idx:
-            target[idx] = StopLossTakeProfit.UPPER_BOUND.value
         else:
-            if first_lower_bound < first_upper_bound:
-                target[idx] = StopLossTakeProfit.LOWER_BOUND.value
-            else:
+            if first_lower_bound == idx:
                 target[idx] = StopLossTakeProfit.UPPER_BOUND.value
+            else:
+                if first_upper_bound < first_lower_bound:
+                    target[idx] = StopLossTakeProfit.UPPER_BOUND.value
+                else:
+                    target[idx] = StopLossTakeProfit.LOWER_BOUND.value
 
     return target
+
+
+def get_close_price_target(dataset: pd.DataFrame, time_lag: int):
+    return dataset["close"].iloc[time_lag:].to_numpy() - dataset["close"].iloc[:-time_lag].to_numpy()
