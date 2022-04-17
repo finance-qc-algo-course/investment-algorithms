@@ -70,7 +70,7 @@ class MPPCA():
                     detCinv = self.EPS
                 logR[:, c] = (np.log(pi[c]) 
                     + 0.5 * np.log(detCinv) # вычитаем ln(C) <=> прибавляем ln(C^-1)
-                    - 0.5 * d * np.log(np.pi) # sigma2[c] + self.EPS) ########## pi???
+                    - 0.5 * d * np.log(np.pi) 
                     - 0.5 * (deviation_from_center * (deviation_from_center @ Cinv[c, :, :].T)).sum(axis=1)
                     )
 
@@ -92,7 +92,7 @@ class MPPCA():
 
             # аналогично считаем pi_i (страница 9 статьи)
             my_max = logR.max(axis=0)
-            shifted_R = np.exp(np.clip(logR - my_max.reshape((1, p)), -MAX_FOR_EXP, MAX_FOR_EXP)) #####
+            shifted_R = np.exp(np.clip(logR - my_max.reshape((1, p)), -MAX_FOR_EXP, MAX_FOR_EXP))
             logpi = my_max + np.log(shifted_R.sum(axis=0)) - np.log(N)
 
             pi = np.exp(np.clip(logpi, -MAX_FOR_EXP, MAX_FOR_EXP))
