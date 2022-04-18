@@ -112,7 +112,7 @@ class Algorithm(Interface):
             ]
 
         prob = cp.Problem(objective, constraints)
-        prob.solve(solver='SCS')
+        prob.solve()
 
         self.weights = w.value
 

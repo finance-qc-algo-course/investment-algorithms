@@ -1,4 +1,4 @@
-from ../../BasePortfolioManager import PortfolioManager
+from BasePortfolioManager import PortfolioManager
 
 import numpy as np
 from typing import List

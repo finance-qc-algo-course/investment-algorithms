@@ -1,4 +1,4 @@
-from ../../BaseEventManager import EventManager
+from BaseEventManager import EventManager
 
 import datetime as dttm
 from typing import Callable, Type

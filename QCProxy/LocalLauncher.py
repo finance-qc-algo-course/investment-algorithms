@@ -28,7 +28,7 @@ class BaseScore:
 # https://github.com/QuantConnect/Lean/blob/master/Common/Statistics/Statistics.cs#L462-L477
 # https://github.com/QuantConnect/Lean/blob/master/Common/Statistics/Statistics.cs#L564-L567
 class SharpeRatioScore(BaseScore):
-    def __init__(self, risk_free: float):
+    def __init__(self, risk_free: float = 0.0):
         super().__init__()
         self.risk_free = risk_free
         self.returns = np.array([], dtype=np.float64)
@@ -41,10 +41,11 @@ class SharpeRatioScore(BaseScore):
 
     def Eval(self) -> np.float64:
         mean = np.power(np.mean(self.returns) + 1.0, BaseScore.TRADE_DAYS) - 1.0
-        std = np.std(self.returns) * BaseScore.TRADE_DAYS
-        return np.divide(mean - self.risk_free, std)
+        var = np.var(self.returns) * BaseScore.TRADE_DAYS
+        return np.divide(mean - self.risk_free, var)
 
 # TODO:
+"""
 class SortinoRatioScore(BaseScore):
     def __init__(self, risk_free: float):
         super().__init__()
@@ -61,6 +62,7 @@ class SortinoRatioScore(BaseScore):
         mean = np.power(np.mean(self.returns) + 1.0, BaseScore.TRADE_DAYS) - 1.0
         std = np.std(self.returns) * BaseScore.TRADE_DAYS
         return np.divide(mean - self.risk_free, std)
+"""
 
 class BaseLauncher:
     RAW_HISTORY_URL_PATTERN = \

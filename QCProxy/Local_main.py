@@ -1,4 +1,4 @@
-from LocalLauncher import BaseLauncher, SharpeRatioScore, SortinoRatioScore
+from LocalLauncher import BaseLauncher, SharpeRatioScore # TODO: , SortinoRatioScore
 from LocalPortfolioManager import LocalPortfolioManager
 from LocalHistoryManager import LocalHistoryManager
 from LocalEventManager import LocalEventManager
@@ -22,7 +22,7 @@ class Launcher(BaseLauncher):
         pass
 
 if __name__ == "__main__":
-    score = SharpeRatioScore(0.0)
+    score = SharpeRatioScore()
     launcher = Launcher(score)
     sr = launcher.Run()
     print("Sharpe ratio = {}".format(sr))

@@ -1,4 +1,4 @@
-from ../../BaseHistoryManager import HistoryManager
+from BaseHistoryManager import HistoryManager
 
 import datetime as dttm
 import pandas as pd
