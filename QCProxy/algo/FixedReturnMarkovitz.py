@@ -19,7 +19,7 @@ ALGO_HYPERPARAMS = {
     "REBALANCE_PERIOD": 900,
     "TOP_COUNT": 15, # in 1..=46
     "TARGET_RETURN": 0.0028,
-    "PREPROC_KIND": 'mppca', # {None, 'pca', 'to_norm_pca', 'mppca'}
+    "PREPROC_KIND": None, # {None, 'pca', 'to_norm_pca', 'mppca'}
     "PREPROC_DIMS": 14,
     "PREPROC_PARAMS": {
         "pca": {
@@ -33,14 +33,14 @@ ALGO_HYPERPARAMS = {
             "n_models": 2,
         },
     },
-    "DIMRED_KIND": None, # {None, 'pca', 'kpca', 'mcd'}
-    "DIMRED_DIMS": None,
+    "DIMRED_KIND": 'kpca', # {None, 'pca', 'kpca', 'mcd'}
+    "DIMRED_DIMS": 8,
     "DIMRED_PARAMS": {
         "pca": {
-            "n_components": None, # self.DIMRED_DIMS,
+            "n_components": 8,
         },
         "kpca": {
-            "n_components": None, # self.DIMRED_DIMS,
+            "n_components": 8,
             "kernel": "poly",
         },
         "mcd": {},
@@ -94,8 +94,8 @@ class Algorithm(Interface):
         self.MarkovitzRebalance(prices)
 
     def MarkovitzRebalance(self, prices):
-        prices = self.MarkovitzPreprocess(prices, kind=self.PREPROC_KIND)
         self.MarkovitzUpdateParams(prices)
+        prices = self.MarkovitzPreprocess(prices, kind=self.PREPROC_KIND)
         self.MarkovitzReduceDimensions(kind=self.DIMRED_KIND)
         self.MarkovitzOptimize()
         self.SetWeights(self.weights)
@@ -111,6 +111,8 @@ class Algorithm(Interface):
                 w.T @ self.mu == self.fixed_return, \
             ]
 
+        print(self.mu)
+        print(self.sigma)
         prob = cp.Problem(objective, constraints)
         prob.solve()
 
@@ -150,12 +152,15 @@ class Algorithm(Interface):
         elif kind == 'pca':
             prices = cov_matrix_preprocessing \
                 .PCA_preprocessing(prices.T, **self.PREPROC_PARAMS["pca"])
+            self.sigma = np.cov(prices)
         elif kind == 'to_norm_pca':
             prices = cov_matrix_preprocessing \
                 .to_norm_PCA_preprocessing(prices.T, **self.PREPROC_PARAMS["to_norm_pca"])
+            self.sigma = np.cov(prices)
         elif kind == 'mppca':
             prices = cov_matrix_preprocessing \
                 .MPPCA_preprocessing(prices.T, **self.PREPROC_PARAMS["mppca"])
+            self.sigma = np.cov(prices)
         else:
             raise ValueError('{} is not a valid price preprocessing kind'\
                     .format(str(kind)))
