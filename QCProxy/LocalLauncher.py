@@ -163,6 +163,7 @@ class BaseLauncher:
             for t, df in zip(self.tickers, upsampled)
         ]
         self.returns = pd.concat(returns, axis=1)
+        self.returns = self.returns[self.returns.index.dayofweek < 5]
     
     def GetCurrentDate(self) -> dttm.date:
         return self.cur_date

@@ -111,8 +111,6 @@ class Algorithm(Interface):
                 w.T @ self.mu == self.fixed_return, \
             ]
 
-        print(self.mu)
-        print(self.sigma)
         prob = cp.Problem(objective, constraints)
         prob.solve()
 
