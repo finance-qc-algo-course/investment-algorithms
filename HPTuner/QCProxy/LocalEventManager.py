@@ -1,5 +1,5 @@
-from BaseEventManager import EventManager
-from LocalLauncher import BaseLauncher
+from .BaseEventManager import EventManager
+from .LocalLauncher import BaseLauncher
 
 import datetime as dttm
 from typing import Callable, Type

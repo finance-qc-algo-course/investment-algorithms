@@ -47,7 +47,7 @@ class SharpeRatioScore(BaseScore):
 # TODO:
 """
 class SortinoRatioScore(BaseScore):
-    def __init__(self, risk_free: float):
+    def __init__(self, risk_free: float = 0.0):
         super().__init__()
         self.risk_free = risk_free
         self.returns = np.array([], dtype=np.float64)
@@ -59,9 +59,10 @@ class SortinoRatioScore(BaseScore):
         self.returns = np.append(self.returns, delta_returns)
 
     def Eval(self) -> np.float64:
-        mean = np.power(np.mean(self.returns) + 1.0, BaseScore.TRADE_DAYS) - 1.0
-        std = np.std(self.returns) * BaseScore.TRADE_DAYS
-        return np.divide(mean - self.risk_free, std)
+        mean = np.power(np.mean(np.maximum(self.returns, 0.0)) + 1.0, \
+                BaseScore.TRADE_DAYS) - 1.0
+        var = np.var(self.returns) * BaseScore.TRADE_DAYS
+        return np.divide(mean - self.risk_free, var)
 """
 
 class BaseLauncher:

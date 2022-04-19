@@ -1,5 +1,5 @@
-from BasePortfolioManager import PortfolioManager
-from LocalLauncher import BaseLauncher
+from .BasePortfolioManager import PortfolioManager
+from .LocalLauncher import BaseLauncher
 
 import numpy as np
 from typing import List

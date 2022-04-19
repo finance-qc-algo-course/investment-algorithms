@@ -51,3 +51,15 @@ class Interface:
                     period_days: int):
         assert period_days > 0
         self.event_manager_.SetCallback(callback, period_days)
+
+    # TODO:
+    """
+    def SetUniverse(self, tickers: List[str], predicate: Callable[[T], float], prefix: int, period_days: int)
+        ...
+        T == "AAPL"
+        ("R", period_days)
+        if day % period_days == 0:
+            GetHistory([t for t in tickers if QC.available(t)], period) -> calculate Return
+            self.tickers = sort(tickers, predicate)[prefix:]
+    """
+

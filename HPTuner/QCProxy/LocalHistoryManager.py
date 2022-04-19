@@ -1,5 +1,5 @@
-from BaseHistoryManager import HistoryManager
-from LocalLauncher import BaseLauncher
+from .BaseHistoryManager import HistoryManager
+from .LocalLauncher import BaseLauncher
 
 import datetime as dttm
 import pandas as pd

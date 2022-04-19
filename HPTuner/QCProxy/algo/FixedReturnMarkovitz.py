@@ -1,4 +1,4 @@
-from Interface import Interface
+from ..Interface import Interface
 
 from . import custom_tickers
 from . import cov_matrix_preprocessing
