@@ -71,7 +71,6 @@ class NDR(TransformerMixin, BaseEstimator):
         """
         fit
         """
-        # to do
         if self.n_comp is None or self.window_size is None:
             if self.is_NPCA:
                 self.n_comp, self.window_size = self._NPCA_param_search(X)
@@ -100,7 +99,6 @@ class NDR(TransformerMixin, BaseEstimator):
         """
         _transform
         """
-        # to do
         if self.is_NPCA:
             return self._NPCA_dim_red(X, self.n_comp, self.window_size)
         
