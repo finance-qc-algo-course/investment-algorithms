@@ -35,3 +35,4 @@ class QuantConnectEventManager(EventManager):
         for period, cb in self.callbacks:
             if elapsed % period == 0:
                 cb()
+

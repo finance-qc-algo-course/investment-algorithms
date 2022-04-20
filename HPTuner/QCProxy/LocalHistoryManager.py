@@ -22,3 +22,4 @@ class LocalHistoryManager(HistoryManager):
 
     def Ready(self) -> bool:
         return self.world is not None
+

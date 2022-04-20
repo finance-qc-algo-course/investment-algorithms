@@ -38,3 +38,4 @@ class QuantConnectPortfolioManager(PortfolioManager):
                 self.cash is not None and \
                 self.tickers is not None and \
                 self.symbols is not None
+

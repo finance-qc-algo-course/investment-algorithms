@@ -5,34 +5,36 @@ from sklearn.base import BaseEstimator
 from sklearn.model_selection import RandomizedSearchCV, TimeSeriesSplit
 
 from QCProxy.LocalLauncher import BaseLauncher, BaseScore, SharpeRatioScore
+from QCProxy.LocalDataProvider import BaseDataProvider, YahooDataProvider
 from QCProxy.LocalPortfolioManager import LocalPortfolioManager
 from QCProxy.LocalHistoryManager import LocalHistoryManager
 from QCProxy.LocalEventManager import LocalEventManager
 
 from QCProxy.algo.FixedReturnMarkovitz import Algorithm, \
-    ALGO_HYPERPARAMS, ALGO_CASH, ALGO_TICKERS, ALGO_START_DATE, ALGO_END_DATE
+    ALGO_LOOKBACK, ALGO_CASH, ALGO_TICKERS, ALGO_START_DATE, ALGO_END_DATE, \
+    ALGO_HYPERPARAMS
 
 class LocalLauncher(BaseLauncher):
-    def __init__(self, score: BaseScore, \
+    def __init__(self, score: BaseScore, data_provider: BaseDataProvider, \
             start_date: dttm.date, end_date: dttm.date, \
             **hyperparams):
-        super().__init__(score)
+        super().__init__(score, data_provider)
         self.portfolio_manager = LocalPortfolioManager(self)
         self.history_manager = LocalHistoryManager(self)
         self.event_manager = LocalEventManager(self)
 
-        self.algorithm = Algorithm(ALGO_CASH, ALGO_TICKERS, \
-                                   start_date, end_date, \
-                                   self.portfolio_manager, \
+        self.algorithm = Algorithm(self.portfolio_manager, \
                                    self.history_manager, \
                                    self.event_manager, \
+                                   ALGO_CASH, ALGO_TICKERS, \
+                                   start_date, end_date, ALGO_LOOKBACK, \
                                    hyperparams)
         pass
 
 
 # TODO: predict() - ?
 class LocalEstimator(BaseEstimator):
-    def __init__(self, metric: BaseScore, \
+    def __init__(self, metric: BaseScore, data_provider: BaseDataProvider, \
             global_start_date: dttm.date, global_end_date: dttm.date, \
             WINDOW_SIZE=365, REBALANCE_PERIOD=365, TOP_COUNT=15, \
             TARGET_RETURN=0.0, PREPROC_KIND=None, PREPROC_RATIO=1.0, \
@@ -42,6 +44,7 @@ class LocalEstimator(BaseEstimator):
         self.global_start_date = global_start_date
         self.global_end_date = global_end_date
         self.metric = metric
+        self.data_provider = data_provider
         self.launcher = None
         self.score_val = 0.0
 
@@ -91,7 +94,8 @@ class LocalEstimator(BaseEstimator):
                         'DIMRED_KIND', 'DIMRED_RATIO' \
                     ]
             }
-        self.launcher = LocalLauncher(self.metric, \
+        print("Fitting new instance...")
+        self.launcher = LocalLauncher(self.metric, self.data_provider, \
                 start_date=start_date, end_date=self.global_end_date, \
                 **params)
         self.launcher.RunUntil(end_date) # We don't nee score here Run(w[0], w[-1])
@@ -106,7 +110,7 @@ class LocalEstimator(BaseEstimator):
         return self.score_val
 
 if __name__ == "__main__":
-    params = { \
+    params_grid = { \
         'WINDOW_SIZE': [150, 300, 450, 600, 750], \
         'REBALANCE_PERIOD': [300, 450, 600, 750, 900], \
         'TOP_COUNT': [5, 10, 15, 20, 25], \
@@ -116,20 +120,27 @@ if __name__ == "__main__":
         'DIMRED_KIND': [None, 'pca', 'kpca', 'mcd'], \
         'DIMRED_RATIO': [0.2, 0.4, 0.6, 0.8], \
     }
-    default = { name: [vals[0], vals[-1]] for name, vals in params.items() }
-    score = SharpeRatioScore(risk_free=0.0)
-    runner = LocalEstimator(score, ALGO_START_DATE, ALGO_END_DATE)
-    print(runner.get_params())
+    max_window = max(params_grid['WINDOW_SIZE'])
+    metric = SharpeRatioScore(risk_free=0.0)
+    data_provider = YahooDataProvider(ALGO_TICKERS, \
+            ALGO_START_DATE - dttm.timedelta(days=max_window), ALGO_END_DATE)
+    runner = LocalEstimator(metric, data_provider, \
+            ALGO_START_DATE, ALGO_END_DATE)
 
     # TODO: to choose init params for TimeSeriesSplit
     tscv = TimeSeriesSplit(n_splits=5)
     # TODO: to choose init params for RandomizedSearchCV
+    restricted_grid = {
+            name: [vals[0], vals[-1]] for name, vals in params_grid.items()
+        }
     rs = RandomizedSearchCV(\
             estimator=runner, \
-            param_distributions=default, \
+            param_distributions=restricted_grid, \
             cv=tscv)
 
     data = pd.date_range(start=ALGO_START_DATE, end=ALGO_END_DATE)
     rs.fit(data)
+
+    print("BEST PARAMS:")
     print(rs.best_params_)
 

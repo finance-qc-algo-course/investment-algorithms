@@ -4,8 +4,7 @@ import pandas as pd
 import datetime as dttm
 from typing import Callable, List
 
-import io
-from urllib.request import urlopen
+from .LocalDataProvider import BaseDataProvider, YahooDataProvider
 
 class BaseScore:
     TRADE_DAYS = 252
@@ -44,8 +43,7 @@ class SharpeRatioScore(BaseScore):
         var = np.var(self.returns) * BaseScore.TRADE_DAYS
         return np.divide(mean - self.risk_free, var)
 
-# TODO:
-"""
+# TODO check if thiss is the right way according to the Lean engine:
 class SortinoRatioScore(BaseScore):
     def __init__(self, risk_free: float = 0.0):
         super().__init__()
@@ -63,41 +61,9 @@ class SortinoRatioScore(BaseScore):
                 BaseScore.TRADE_DAYS) - 1.0
         var = np.var(self.returns) * BaseScore.TRADE_DAYS
         return np.divide(mean - self.risk_free, var)
-"""
 
 class BaseLauncher:
-    RAW_HISTORY_URL_PATTERN = \
-            "https://query1.finance.yahoo.com/v7/finance/download/" + \
-            "{}?period1={}&period2={}&interval=1d&events=history"
-    def DownloadHistory(tickers: List[str], \
-            start_date: dttm.date, end_date: dttm.date) -> List[pd.DataFrame]:
-        start_period = int((start_date - dttm.date(1970, 1, 1)).total_seconds())
-        end_period = int((end_date - dttm.date(1970, 1, 1)).total_seconds())
-        raw_history = []
-        for ticker in tickers:
-            url = BaseLauncher.RAW_HISTORY_URL_PATTERN.format(ticker.upper(), start_period, end_period)
-            # XXX:
-            print("Loading URL: {}".format(url))
-            output = urlopen(url).read()
-            str_io = io.StringIO(output.decode('utf-8'))
-            raw_history.append(pd.read_csv(str_io, parse_dates=['Date']).fillna(method='ffill'))
-        
-        return raw_history
-    
-    def HistoryYahoo2QC(tickers, dfs):
-        rename_dict = {\
-            'Date': 'time', 'Open': 'open', 'Close': 'close', \
-            'High': 'high', 'Low': 'low', 'Volume': 'volume'\
-        }
-        for df, ticker in zip(dfs, tickers):
-            df['symbol'] = ticker
-            df.drop(columns=['Adj Close'], inplace=True)
-            df.rename(columns=rename_dict, inplace=True)
-            df.set_index(['symbol', 'time'], inplace=True)
-
-        return pd.concat(dfs)
-    
-    def __init__(self, score):
+    def __init__(self, score: BaseScore, data_provider: BaseDataProvider = None):
         self.start_date = None
         self.end_date = None
         self.cur_date = None
@@ -110,9 +76,7 @@ class BaseLauncher:
         self.hist_start_date = None
         self.hist_end_date = None
         self.hist_tickers = []
-        self.history = None
-        self.returns = None
-
+        self.data_provider = data_provider
         self.score = score
 
     def InitializeStartEnd(self, start_date: dttm.date, end_date: dttm.date):
@@ -132,7 +96,8 @@ class BaseLauncher:
         assert cash > 0
         self.cash = cash
 
-    def InitializeHistoryStartEnd(self, start_date: dttm.date, end_date: dttm.date):
+    def InitializeHistoryStartEnd(self, start_date: dttm.date, \
+            end_date: dttm.date):
         assert self.hist_start_date is None and self.hist_end_date is None
         assert start_date < end_date
         self.hist_start_date = start_date
@@ -143,28 +108,13 @@ class BaseLauncher:
         assert len(tickers) > 0
         self.hist_tickers = tickers
     
-    def InitializeHistory(self):
+    def InitializeDataProvider(self):
+        assert self.data_provider is None
         assert len(self.hist_tickers) > 0
-        assert self.hist_start_date is not None and self.hist_end_date is not None
-        raw_history = BaseLauncher.DownloadHistory(self.hist_tickers, self.hist_start_date, self.hist_end_date)
-        self.history = BaseLauncher.HistoryYahoo2QC(self.hist_tickers, raw_history)
-
-    def InitializeReturns(self):
-        assert self.returns is None
-        assert len(self.tickers) > 0
-        assert self.start_date is not None and self.end_date is not None
-        raw_history = BaseLauncher.DownloadHistory(self.tickers, self.start_date, self.end_date)
-        history = BaseLauncher.HistoryYahoo2QC(self.tickers, raw_history)
-        upsampled = [ \
-            history.loc[t].resample(rule='D').ffill() \
-            for t in self.tickers \
-        ]
-        returns = [ \
-            (((df['close'] - df.shift(1)['close']) / df['close']).fillna(0.0)).rename(t) \
-            for t, df in zip(self.tickers, upsampled)
-        ]
-        self.returns = pd.concat(returns, axis=1)
-        self.returns = self.returns[self.returns.index.dayofweek < 5]
+        assert self.hist_start_date is not None and \
+                self.hist_end_date is not None
+        self.data_provider = YahooDataProvider(self.hist_tickers, \
+                self.hist_start_date, self.hist_end_date)
     
     def GetCurrentDate(self) -> dttm.date:
         return self.cur_date
@@ -175,17 +125,15 @@ class BaseLauncher:
     
     def GetHistory(self, tickers: List[str], \
             start_date: dttm.date, end_date: dttm.date) -> pd.DataFrame:
-        assert set(tickers).issubset(self.hist_tickers)
-        assert start_date >= self.hist_start_date
-        assert end_date <= self.hist_end_date
-        assert start_date < end_date
+        if self.data_provider is None:
+            self.InitializeDataProvider()
+        return self.data_provider.GetHistory(tickers, start_date, end_date)
 
-        if self.history is None:
-            self.InitializeHistory()
-        tickers_idx = self.history.index.get_level_values(0)
-        date_idx = self.history.index.get_level_values(1)
-        return self.history[(tickers_idx.isin(tickers)) & \
-                (date_idx >= str(start_date)) & (date_idx < str(end_date))]
+    def GetReturns(self, tickers: List[str], \
+            start_date: dttm.date, end_date: dttm.date) -> pd.DataFrame:
+        if self.data_provider is None:
+            self.InitializeDataProvider()
+        return self.data_provider.GetReturns(tickers, start_date, end_date)
 
     def GetTickers(self) -> List[str]:
         return self.tickers
@@ -204,19 +152,29 @@ class BaseLauncher:
         assert date <= self.end_date
         if zero_score:
             self.score.Zero()
-        # TODO: to jump over the "empty" days
-        while self.cur_date < date:
-            elapsed = (self.cur_date - self.start_date).days + 1
-            for period, callback in self.callbacks:
-                if elapsed % period == 0:
-                    callback()
-            self.AdvanceDays(1)
+
+        # Collecting events & sorting them by the date
+        events = []
+        for period, callback in self.callbacks:
+            dr = pd.date_range(start=self.cur_date, end=date) \
+                    [: : period].to_pydatetime()
+            events.append(np.stack([dr, np.full(len(dr), callback)], axis=1))
+        events = np.concatenate(events)
+        events = events[np.argsort(events[:,0], kind='stable')]
+
+        # "Jumping" over the empty days
+        for dt, callback in events:
+            self.AdvanceDays((dt.date() - self.cur_date).days)
+            callback()
+        self.AdvanceDays((date - self.cur_date).days)
         
         return self.score.Eval()
 
     def AdvanceDays(self, count: int):
-        assert count > 0
+        assert count >= 0
         assert count <= (self.end_date - self.cur_date).days
+        if count == 0:
+            return
         delta_returns = self.CalculateNextReturns(count)
         self.score.Update(delta_returns)
         self.cur_date += dttm.timedelta(days=count)
@@ -226,10 +184,7 @@ class BaseLauncher:
         assert count <= (self.end_date - self.cur_date).days
         start_date = self.cur_date
         end_date = start_date + dttm.timedelta(days=count)
-
-        if self.returns is None:
-            self.InitializeReturns()
-        idx = self.returns.index
-        returns = self.returns[(idx >= str(start_date)) & (idx < str(end_date))]
+        returns = self.GetReturns(self.tickers, start_date, end_date)
         # TODO: share splits (?)
         return (returns * self.weights).sum(axis=1).to_numpy()
+

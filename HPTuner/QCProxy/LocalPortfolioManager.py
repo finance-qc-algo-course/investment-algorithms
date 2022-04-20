@@ -23,3 +23,4 @@ class LocalPortfolioManager(PortfolioManager):
 
     def Ready(self) -> bool:
         return self.world is not None
+

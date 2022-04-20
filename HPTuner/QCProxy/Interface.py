@@ -4,11 +4,12 @@ import datetime as dttm
 from typing import Callable, List, Type
 
 class Interface:
-    def __init__(self, cash: int, tickers: List[str], \
-                 start_date: dttm.date, end_date: dttm.date, \
-                 portfolio_manager, history_manager, event_manager):
+    def __init__(self, portfolio_manager, history_manager, event_manager, \
+                 cash: int, tickers: List[str], \
+                 start_date: dttm.date, end_date: dttm.date, lookback: int):
         assert len(tickers) > 0
         assert start_date < end_date
+        assert lookback >= 0
 
         self.portfolio_manager_ = portfolio_manager
         self.portfolio_manager_.SetCash(cash)
@@ -17,7 +18,8 @@ class Interface:
 
         self.history_manager_ = history_manager
         self.history_manager_.SetTickers(tickers)
-        self.history_manager_.SetStartEnd(start_date, end_date)
+        self.history_manager_.SetStartEnd( \
+                start_date - dttm.timedelta(days=lookback), end_date)
         assert self.history_manager_.Ready()
 
         self.event_manager_ = event_manager

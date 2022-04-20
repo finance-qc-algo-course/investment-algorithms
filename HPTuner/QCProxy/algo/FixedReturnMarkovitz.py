@@ -48,19 +48,19 @@ ALGO_HYPERPARAMS = {
 }
 
 ALGO_TICKERS = custom_tickers.get_custom_top_tickers(ALGO_HYPERPARAMS["TOP_COUNT"])
-ALGO_START_DATE = dttm.date(2006, 1, 1) - \
-        max(dttm.timedelta(days=ALGO_HYPERPARAMS["WINDOW_SIZE"]), \
-            dttm.timedelta(days=ALGO_HYPERPARAMS["REBALANCE_PERIOD"]))
+ALGO_START_DATE = dttm.date(2006, 1, 1)
 ALGO_END_DATE = dttm.date(2014, 1, 1)
+ALGO_LOOKBACK = ALGO_HYPERPARAMS["WINDOW_SIZE"]
 ALGO_CASH = 100000
 
 class Algorithm(Interface):
-    def __init__(self, cash: int, tickers: List[str], \
-                 start_date: dttm.date, end_date: dttm.date, \
-                 portfolio_manager, history_manager, event_manager, \
+    def __init__(self, portfolio_manager, history_manager, event_manager, \
+                 cash: int, tickers: List[str], \
+                 start_date: dttm.date, end_date: dttm.date, lookback: int, \
                  hyperparams):
-        super().__init__(cash, tickers, start_date, end_date, \
-                portfolio_manager, history_manager, event_manager)
+        super().__init__( \
+                portfolio_manager, history_manager, event_manager, \
+                cash, tickers, start_date, end_date, lookback)
         self.InitializeHyperparams(hyperparams)
         self.InitializeAlgorithm()
 
