@@ -22,6 +22,6 @@ def get_features(dataset: pd.DataFrame) -> StockDataFrame:
 class CorrelatedStrategy(Trader):
     def __init__(self, broker: Broker):
         super(CorrelatedStrategy, self).__init__(broker)
-        self.classifier =
 
     def process_data(self, data: pd.Series, current_money: float, price: float) -> dict:
+        pass

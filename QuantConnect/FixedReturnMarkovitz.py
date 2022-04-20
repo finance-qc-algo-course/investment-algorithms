@@ -14,7 +14,7 @@ class FixedReturnMarkovitz(QCAlgorithm):
     def Initialize(self):
         self.WINDOW_SIZE = 735
         self.REBALANCE_PERIOD = 900
-        self.TOP_COUNT = 15 # in 1..=46
+        self.TOP_COUNT = 15 # in bitcoin_lgb..=46
         self.TARGET_RETURN = 0.0028
         self.PREPROC_KIND = 'mppca' # {None, 'pca', 'to_norm_pca', 'mppca'}
         self.PREPROC_DIMS = 14

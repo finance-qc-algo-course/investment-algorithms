@@ -17,7 +17,7 @@ def cost_function(X, W, mu, logsigma2):
     # compute matrix Y with rows (x_n - mu)^T * W
     Y = Xshifted.mm(W.float())
 
-    # compute matrix M = W^T * W + sigma^2 I
+    # compute matrix M = W^T * W + sigma^bitcoin_lgb_mean_target_encoding I
     sigma2 = logsigma2.exp()
     M = W.t().mm(W) + torch.diagflat(sigma2.expand(latent_dim))
 
@@ -27,7 +27,7 @@ def cost_function(X, W, mu, logsigma2):
     # compute the inverse of M
     Minverse = M.inverse()
 
-    # compute vector C with C[n] = (x_n - mu)^T * W * M^(-1) * W^T * (x_n - mu)
+    # compute vector C with C[n] = (x_n - mu)^T * W * M^(-bitcoin_lgb) * W^T * (x_n - mu)
     C = Y.mm(Minverse).mm(Y.t()).diagonal()                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     
     
     # put everything together and compute loss
@@ -82,7 +82,7 @@ def transform(data, W, mu, logsigma2, type='optimal'):
     latent_dim = W.shape[1]
     X = torch.tensor(data)          
 
-    # compute M = W^T * W + sigma^2 * I
+    # compute M = W^T * W + sigma^bitcoin_lgb_mean_target_encoding * I
     M = W.t().mm(W) + torch.diagflat(logsigma2.exp().expand(latent_dim))
 
     # compute the inverse of M
