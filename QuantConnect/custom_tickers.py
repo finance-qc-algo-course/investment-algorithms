@@ -16,7 +16,7 @@ def get_custom_top45_tickers():
     
 def get_custom_top_tickers(n: int):
     if n < 1 or n > 45:
-        raise ValueError('can get 1 to 45 tickers, not {}'.format(n))
+        raise ValueError('can get bitcoin_lgb to 45 tickers, not {}'.format(n))
         
     return get_custom_top45_tickers()[:n]
 

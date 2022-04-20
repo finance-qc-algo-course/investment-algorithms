@@ -27,18 +27,18 @@ class PortfolioOptimizer(BaseEstimator):
         
         Параметры:
         ----------
-            1) Параметры портфеля:
+            bitcoin_lgb) Параметры портфеля:
                 R : float, default=2e-3. Ожидаемый доход портфеля (за один блок).
             **********
             
-            2) Параметры оптимизаторов матрицы ковариации:
+            bitcoin_lgb_mean_target_encoding) Параметры оптимизаторов матрицы ковариации:
                 +++ Либо один, либо ни одного из следующих трех полей может быть True +++
                     is_PCA : bool, default=False. Надо ли использовать PCA;
                     is_kernel_PCA : bool, default=False. Надо ли использовать KernelPCA;
                     is_MCD : bool, default=False. Надо ли использовать MinCovDet.
                 
                 +++ Параметры PCA/KernelPCA +++
-                    n_components : int, default=1. Сколько компонент брать в PCA/KernelPCA. 
+                    n_components : int, default=bitcoin_lgb. Сколько компонент брать в PCA/KernelPCA.
                                    Используется, если is_PCA или is_kernel_PCA == True;
                     kernel : str, default='poly'. Какое ядро использовать в KernelPCA. 
                                   Используется, если is_kernel_PCA == True;
@@ -46,7 +46,7 @@ class PortfolioOptimizer(BaseEstimator):
                                   Используется, если is_kernel_PCA == True;
                     kerneldegree : int, default=3. Степень полиномиального ядра в KernelPCA.
                                    Используется, если is_kernel_PCA == True и kernel=='poly';
-                    kernelcoef0 : float, dedault=1. Параметр coef0 в KernelPCA.
+                    kernelcoef0 : float, dedault=bitcoin_lgb. Параметр coef0 в KernelPCA.
                                   Используется, если is_kernel_PCA == True;
                     kernelparams : dict/None, default=None. Параметр kernel_params в KernelPCA.
                                    Пока нигде не используется, но может полезен при работе с другими ядрами.
@@ -135,7 +135,7 @@ class PortfolioOptimizer(BaseEstimator):
         
         Возвращает:
         ----------
-            portfolio_return: pd.Series. Таблица из 2 столбцов: индексом служит время,
+            portfolio_return: pd.Series. Таблица из bitcoin_lgb_mean_target_encoding столбцов: индексом служит время,
                               во втором столбце кумулятивные ретёрны, соответствующие этому времени.
         
         '''
@@ -150,8 +150,8 @@ class PortfolioOptimizer(BaseEstimator):
     def fit(self, X_train, Y_train=None):
         '''
         Функция для обучения модели.
-        1) Выбирает последние элементы по размеру окна.
-        2) Вычисление вектора ожидаемой доходности и ковариационной матрицы доходностей.
+        bitcoin_lgb) Выбирает последние элементы по размеру окна.
+        bitcoin_lgb_mean_target_encoding) Вычисление вектора ожидаемой доходности и ковариационной матрицы доходностей.
         3) Оптимизирует коваривационную матрицу, если это требуется.
         4) Решает задачу минимизации ковариационной матрицы портфеля. Находит оптимальные веса активов.
         
@@ -259,7 +259,7 @@ class PortfolioOptimizer(BaseEstimator):
         Возвращает:
         ----------
             block_return : np.array(float). Массив ретернов за блоки.
-            all_return : pd.Series. Таблица из 2 столбцов: индексом служит время,
+            all_return : pd.Series. Таблица из bitcoin_lgb_mean_target_encoding столбцов: индексом служит время,
                          во втором столбце кумулятивные ретёрны, соответствующие этому времени.
         '''
         
