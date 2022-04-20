@@ -182,10 +182,9 @@ class PortfolioOptimizer(BaseEstimator):
                 if self.is_NPCA:
                     NPCA = NDR(is_NPCA=True, n_comp=self.ndr_n_comp, window_size=self.ndr_window_size)
                     self.X_train_ = NPCA.transform(X_train)
-
                 elif self.is_NMF:
                     NMF = NDR(is_NMF=True, n_comp=self.ndr_n_comp, window_size=self.ndr_window_size)
-                    self.X_train_ = NMF.transform(X_train)
+                    self.X_train_ = NMF.transform(X_train)        
             except Exception as e:
                 self.X_train_ = X_train.pct_change(1).fillna(0)
         else:
