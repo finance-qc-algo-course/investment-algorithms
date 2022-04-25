@@ -8,6 +8,7 @@ import cvxpy as cp
 import functools
 import datetime as dttm
 import warnings
+import pandas as pd
 
 from sklearn.decomposition import PCA
 from sklearn.decomposition import KernelPCA
@@ -97,25 +98,38 @@ class Algorithm(Interface):
         self.MarkovitzRebalance(prices)
 
     def MarkovitzRebalance(self, prices):
+        prices = prices.T
         self.MarkovitzUpdateParams(prices)
         prices = self.MarkovitzPreprocess(prices, kind=self.PREPROC_KIND)
-        self.MarkovitzReduceDimensions(kind=self.DIMRED_KIND)
+        self.MarkovitzReduceDimensions(prices, kind=self.DIMRED_KIND)
+        self.SetFixedReturn()
         self.MarkovitzOptimize()
+        self.TransformToTickers()
         self.SetWeights(self.weights)
+
+    def TransformToTickers(self):
+        if self.DIMRED_KIND == 'pca' or self.DIMRED_KIND == 'kpca':
+            print(self.components_.shape, self.weights.shape)
+            self.weights = self.components_.T.dot(self.weights)
 
     def MarkovitzOptimize(self):
         # XXX sum_weight = np.sum(self.weights)
         # XXX self.weights = np.divide(self.weights, sum_weight)
-        w = cp.Variable(self.count)
+        w = cp.Variable(self.sigma.shape[0])
         objective = cp.Minimize(cp.quad_form(w, self.sigma)) # * 0.5
         constraints = [ \
                 w.T >= 0.0, \
-                w.T @ np.ones(self.count) == 1.0, \
+                w.T @ np.ones(self.sigma.shape[0]) == 1.0, \
                 w.T @ self.mu == self.fixed_return, \
             ]
 
         prob = cp.Problem(objective, constraints)
-        prob.solve(verbose=False, solver='SCS')
+        try:
+            prob.solve()
+        except:
+            warnings.warn('''SolverError: solver can't solve this task. 
+                Trying to solve with another solver''')
+            prob.solve(solver='CVXOPT')
 
         self.weights = w.value
 
@@ -135,9 +149,7 @@ class Algorithm(Interface):
         
         return prices
 
-    def MarkovitzUpdateParams(self, prices):
-        self.mu = np.mean(prices, axis=-1)
-        self.sigma = np.cov(prices)
+    def SetFixedReturn(self):
         # TODO: adjust quatntiles
         if 1.0 + self.TARGET_RETURN < np.min(self.mu):
             self.fixed_return = np.quantile(self.mu, 0.5)
@@ -146,46 +158,63 @@ class Algorithm(Interface):
         else:
             self.fixed_return = 1.0 + self.TARGET_RETURN
 
+    def MarkovitzUpdateParams(self, prices):
+        self.mu = np.mean(prices.T, axis=-1)
+        self.sigma = np.cov(prices.T)
+
     def MarkovitzPreprocess(self, prices, kind=None):
         if kind is None:
             pass # keep `prices` untouched
         elif kind == 'pca':
-            prices = cov_matrix_preprocessing \
-                .PCA_preprocessing(prices.T, **self.PREPROC_PARAMS["pca"])
-            self.sigma = np.cov(prices)
+            self.sigma = cov_matrix_preprocessing \
+                .PCA_preprocessing(prices, **self.PREPROC_PARAMS["pca"])
         elif kind == 'to_norm_pca':
-            prices = cov_matrix_preprocessing \
-                .to_norm_PCA_preprocessing(prices.T, **self.PREPROC_PARAMS["to_norm_pca"])
-            self.sigma = np.cov(prices)
+            self.sigma = cov_matrix_preprocessing \
+                .to_norm_PCA_preprocessing(prices, **self.PREPROC_PARAMS["to_norm_pca"])
         elif kind == 'mppca':
-            prices = cov_matrix_preprocessing \
-                .MPPCA_preprocessing(prices.T, **self.PREPROC_PARAMS["mppca"])
-            self.sigma = np.cov(prices)
+            self.sigma = cov_matrix_preprocessing \
+                .MPPCA_preprocessing(prices, **self.PREPROC_PARAMS["mppca"])
+        elif kind == 'to_norm_mppca':
+            self.sigma = cov_matrix_preprocessing \
+                .MPPCA_preprocessing(prices, **self.PREPROC_PARAMS["to_norm_mppca"])
         else:
             raise ValueError('{} is not a valid price preprocessing kind'\
                     .format(str(kind)))
         
         return prices
 
-    def MarkovitzReduceDimensions(self, kind=None):
+    def MarkovitzReduceDimensions(self, prices, kind=None):
         if kind is None:
             pass # keep `self.sigma` untouched
-        elif kind == 'pca':
-            pca = PCA(**self.DIMRED_PARAMS["pca"])
-            pca.fit(self.sigma)
-            self.sigma = pca.get_covariance()
-        elif kind == 'kpca':
-            kpca = KernelPCA(**self.DIMRED_PARAMS["kpca"])
-            kpca.fit(self.sigma)
-            # FIXME SKLEARN REQUIRES TO USE eigenvectors_ and eigenvalues_
-            # INSTEAD OF alphas_ AND lambdas_ SINCE v1.0
-            self.sigma = \
-                    kpca.alphas_ @ \
-                    np.diag(kpca.lambdas_) @ \
-                    kpca.alphas_.T
+        elif kind == 'pca' or kind == 'kpca':
+            if kind == 'pca':
+                if self.DIMRED_PARAMS["pca"]['n_components'] >= self.sigma.shape[0]:
+                    self.DIMRED_PARAMS["pca"]['n_components'] = self.sigma.shape[0] - 1
+                pca = PCA(**self.DIMRED_PARAMS["pca"])
+                pca.fit(self.sigma)
+                self.components_ = pca.components_
+            else:
+                if self.DIMRED_PARAMS["kpca"]['n_components'] >= self.sigma.shape[0]:
+                    self.DIMRED_PARAMS["kpca"]['n_components'] = self.sigma.shape[0] - 1
+                kpca = KernelPCA(**self.DIMRED_PARAMS["kpca"])
+                kpca.fit(self.sigma)
+                self.components_ = kpca.eigenvectors_.T
+            self.components_ = pd.DataFrame(self.components_)
+            # remove components less that zero
+            self.components_[self.components_ < 0] = 0
+            # rebalance componets, so their sum is 1 now 
+            self.components_ = self.components_.div(self.components_.sum(axis=1), axis=0)
+            self.components_.fillna(0)
+            # data of returns by components
+            new_data = prices @ self.components_.to_numpy().T
+            optimized_data = pd.DataFrame(columns=np.linspace(1, new_data.shape[1], new_data.shape[1], dtype=int), 
+                                                data=new_data)
+            # change mu and sigma
+            self.mu = optimized_data[optimized_data.columns].mean().to_numpy()
+            self.sigma = optimized_data[optimized_data.columns].cov()
         elif kind == 'mcd':
             mcd = MinCovDet(**self.DIMRED_PARAMS["mcd"])
-            mcd.fit(self.sigma)
+            mcd.fit(prices)
             self.sigma = mcd.covariance_
         else:
             raise ValueError('{} is not a valid dimension reduction kind'\

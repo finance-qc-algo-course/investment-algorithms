@@ -42,9 +42,10 @@ class SharpeRatioScore(BaseScore):
         if len(self.returns) <= 1:
             return np.float64(0.0)
         mean = np.power(np.mean(self.returns) + 1.0, BaseScore.TRADE_DAYS) - 1.0
-        # print("--------------------MEAN--------------------", mean)
+        print(self.returns)
+        print("--------------------MEAN--------------------", mean)
         var = np.var(self.returns) * BaseScore.TRADE_DAYS
-        # print("--------------------VAR--------------------", var)
+        print("--------------------VAR--------------------", var)
         return np.divide(mean - self.risk_free, var)
 
 # TODO check if thiss is the right way according to the Lean engine:

@@ -62,12 +62,16 @@ class LocalEstimator(BaseEstimator):
         hyperparams["REBALANCE_PERIOD"] = self.REBALANCE_PERIOD
         hyperparams["TOP_COUNT"] = self.TOP_COUNT # in 1..=36
         hyperparams["TARGET_RETURN"] = self.TARGET_RETURN
-        # {None, 'pca', 'to_norm_pca', 'mppca'}
+        # {None, 'pca', 'to_norm_pca', 'mppca', 'to_norm_mppca'}
         hyperparams["PREPROC_KIND"] = self.PREPROC_KIND
         # {None, 'pca', 'kpca', 'mcd'}
         hyperparams["DIMRED_KIND"] = self.DIMRED_KIND
 
-        hyperparams["PREPROC_DIMS"] = int(self.TOP_COUNT * self.PREPROC_RATIO)
+        if self.PREPROC_RATIO <= 1:
+            hyperparams["PREPROC_DIMS"] = int(self.TOP_COUNT * self.PREPROC_RATIO)
+        else:
+            hyperparams["PREPROC_DIMS"] = int(self.PREPROC_RATIO)
+
         hyperparams["DIMRED_DIMS"] = int(self.TOP_COUNT * self.DIMRED_RATIO)
 
         hyperparams["PREPROC_PARAMS"] = {
@@ -81,6 +85,10 @@ class LocalEstimator(BaseEstimator):
                     'kept_components': hyperparams["PREPROC_DIMS"],
                     'n_models': 2,
                 },
+                'to_norm_mppca': {
+                    'kept_components': hyperparams["PREPROC_DIMS"],
+                    'n_models': 2,
+                }
             }
         hyperparams["DIMRED_PARAMS"] = {
                 'pca': {
@@ -121,12 +129,12 @@ if __name__ == "__main__":
     params_grid = { \
         'WINDOW_SIZE': [150, 300, 450, 600, 750], \
         'REBALANCE_PERIOD': [300, 450, 600, 750, 900], \
-        'TOP_COUNT': [15], \
+        'TOP_COUNT': [20, 25, 30], \
         'TARGET_RETURN': [0.0016, 0.0020, 0.0024, 0.0028], \
-        'PREPROC_KIND': [None, 'pca', 'to_norm_pca', 'mppca'], \
-        'PREPROC_RATIO': [0.2, 0.4, 0.6, 0.8], \
-        'DIMRED_KIND': [None, 'pca', 'kpca', 'mcd'], \
-        'DIMRED_RATIO': [0.2, 0.4, 0.6, 0.8], \
+        'PREPROC_KIND': [None], #, 'pca', 'to_norm_pca', 'mppca', 'to_norm_mppca'], \
+        'PREPROC_RATIO': [2, 3, 4, 0.2, 0.4, 0.6, 0.8], \
+        'DIMRED_KIND': [None], # ['pca'], \
+        'DIMRED_RATIO': [None] # [0.2, 0.4, 0.6, 0.8], \
     }
     max_window = max(params_grid['WINDOW_SIZE']) + 1
     metric = SharpeRatioScore(risk_free=0.0)
@@ -145,7 +153,7 @@ if __name__ == "__main__":
             estimator=runner, \
             param_distributions=params_grid, \
             cv=tscv, \
-            n_iter=1000)
+            n_iter=10)
 
     data = pd.date_range(start=ALGO_START_DATE, end=ALGO_END_DATE)
     rs.fit(data)
