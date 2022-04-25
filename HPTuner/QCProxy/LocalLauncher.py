@@ -40,6 +40,7 @@ class SharpeRatioScore(BaseScore):
 
     def Eval(self) -> np.float64:
         mean = np.power(np.mean(self.returns) + 1.0, BaseScore.TRADE_DAYS) - 1.0
+        # print("--------------------MEAN--------------------", mean)
         var = np.var(self.returns) * BaseScore.TRADE_DAYS
         return np.divide(mean - self.risk_free, var)
 
@@ -145,46 +146,53 @@ class BaseLauncher:
         # TODO: to calculate the fee
         self.weights = weights
     
-    def Run(self) -> np.float64:
-        return self.RunUntil(self.end_date)
+    def Run(self, zero_score=True) -> np.float64:
+        return self.RunUntil(self.end_date, zero_score)
 
-    def RunUntil(self, date: dttm.date, zero_score=True) -> np.float64:
+    def RunUntil(self, date: dttm.date, zero_score: bool = True) -> np.float64:
         assert date <= self.end_date
-        if zero_score:
-            self.score.Zero()
 
         # Collecting events & sorting them by the date
         events = []
+        elapsed = (self.cur_date - self.start_date).days
         for period, callback in self.callbacks:
+            start = period - 1 - (elapsed - 1) % period
             dr = pd.date_range(start=self.cur_date, end=date) \
-                    [: : period].to_pydatetime()
+                    [start : : period].to_pydatetime()
             events.append(np.stack([dr, np.full(len(dr), callback)], axis=1))
         events = np.concatenate(events)
         events = events[np.argsort(events[:,0], kind='stable')]
 
+        if zero_score:
+            self.score.Zero()
+
         # "Jumping" over the empty days
         for dt, callback in events:
-            self.AdvanceDays((dt.date() - self.cur_date).days)
+            self.AdvanceDays(dt.date())
             callback()
-        self.AdvanceDays((date - self.cur_date).days)
+        self.AdvanceDays(date)
         
         return self.score.Eval()
 
-    def AdvanceDays(self, count: int):
-        assert count >= 0
-        assert count <= (self.end_date - self.cur_date).days
-        if count == 0:
-            return
-        delta_returns = self.CalculateNextReturns(count)
-        self.score.Update(delta_returns)
-        self.cur_date += dttm.timedelta(days=count)
+    def AdvanceDays(self, date: dttm.date, zero_score: bool = False) -> np.float64:
+        assert date >= self.cur_date
+        assert date <= self.end_date
 
-    def CalculateNextReturns(self, count: int) -> np.ndarray:
-        assert count > 0
-        assert count <= (self.end_date - self.cur_date).days
-        start_date = self.cur_date
-        end_date = start_date + dttm.timedelta(days=count)
-        returns = self.GetReturns(self.tickers, start_date, end_date)
+        if zero_score:
+            self.score.Zero()
+        if date == self.cur_date:
+            return 0.0
+        delta_returns = self.CalculateNextReturns(date)
+        self.score.Update(delta_returns)
+        self.cur_date = date
+
+        return self.score.Eval()
+
+    def CalculateNextReturns(self, date: dttm.date) -> np.ndarray:
+        assert date > self.cur_date
+        assert date <= self.end_date
+
+        returns = self.GetReturns(self.tickers, self.cur_date, date)
         # TODO: share splits (?)
         return (returns * self.weights).sum(axis=1).to_numpy()
 

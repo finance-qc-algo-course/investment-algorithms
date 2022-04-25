@@ -7,6 +7,7 @@ import numpy as np
 import cvxpy as cp
 import functools
 import datetime as dttm
+import warnings
 
 from sklearn.decomposition import PCA
 from sklearn.decomposition import KernelPCA
@@ -57,7 +58,7 @@ class Algorithm(Interface):
     def __init__(self, portfolio_manager, history_manager, event_manager, \
                  cash: int, tickers: List[str], \
                  start_date: dttm.date, end_date: dttm.date, lookback: int, \
-                 hyperparams):
+                 hyperparams=ALGO_HYPERPARAMS):
         super().__init__( \
                 portfolio_manager, history_manager, event_manager, \
                 cash, tickers, start_date, end_date, lookback)
@@ -65,16 +66,18 @@ class Algorithm(Interface):
         self.InitializeAlgorithm()
 
     def InitializeHyperparams(self, hyperparams):
-        self.WINDOW_SIZE = ALGO_HYPERPARAMS["WINDOW_SIZE"]
-        self.REBALANCE_PERIOD = ALGO_HYPERPARAMS["REBALANCE_PERIOD"]
-        self.TOP_COUNT = ALGO_HYPERPARAMS["TOP_COUNT"] # in 1..=46
-        self.TARGET_RETURN = ALGO_HYPERPARAMS["TARGET_RETURN"]
-        self.PREPROC_KIND = ALGO_HYPERPARAMS["PREPROC_KIND"] # {None, 'pca', 'to_norm_pca', 'mppca'}
-        self.PREPROC_DIMS = ALGO_HYPERPARAMS["PREPROC_DIMS"]
-        self.PREPROC_PARAMS = ALGO_HYPERPARAMS["PREPROC_PARAMS"]
-        self.DIMRED_KIND = ALGO_HYPERPARAMS["DIMRED_KIND"] # {None, 'pca', 'kpca', 'mcd'}
-        self.DIMRED_DIMS = ALGO_HYPERPARAMS["DIMRED_DIMS"]
-        self.DIMRED_PARAMS = ALGO_HYPERPARAMS["DIMRED_PARAMS"]
+        self.WINDOW_SIZE = hyperparams["WINDOW_SIZE"]
+        self.REBALANCE_PERIOD = hyperparams["REBALANCE_PERIOD"]
+        self.TOP_COUNT = hyperparams["TOP_COUNT"] # in 1..=36
+        self.TARGET_RETURN = hyperparams["TARGET_RETURN"]
+        # {None, 'pca', 'to_norm_pca', 'mppca'}
+        self.PREPROC_KIND = hyperparams["PREPROC_KIND"]
+        self.PREPROC_DIMS = hyperparams["PREPROC_DIMS"]
+        self.PREPROC_PARAMS = hyperparams["PREPROC_PARAMS"]
+        # {None, 'pca', 'kpca', 'mcd'}
+        self.DIMRED_KIND = hyperparams["DIMRED_KIND"]
+        self.DIMRED_DIMS = hyperparams["DIMRED_DIMS"]
+        self.DIMRED_PARAMS = hyperparams["DIMRED_PARAMS"]
 
     def InitializeAlgorithm(self):
         # Markovitz portfolio data
@@ -112,10 +115,9 @@ class Algorithm(Interface):
             ]
 
         prob = cp.Problem(objective, constraints)
-        prob.solve()
+        prob.solve(verbose=False, solver='SCS')
 
         self.weights = w.value
-
 
     def MarkovitzGetPrices(self, days=None):
         days = days or self.WINDOW_SIZE

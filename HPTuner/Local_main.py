@@ -1,4 +1,4 @@
-from QCProxy.LocalLauncher import BaseLauncher, SharpeRatioScore # TODO: , SortinoRatioScore
+from QCProxy.LocalLauncher import BaseLauncher, SharpeRatioScore, SortinoRatioScore
 from QCProxy.LocalPortfolioManager import LocalPortfolioManager
 from QCProxy.LocalHistoryManager import LocalHistoryManager
 from QCProxy.LocalEventManager import LocalEventManager
@@ -6,6 +6,8 @@ from QCProxy.LocalEventManager import LocalEventManager
 from QCProxy.algo.FixedReturnMarkovitz import Algorithm, \
     ALGO_LOOKBACK, ALGO_CASH, ALGO_TICKERS, ALGO_START_DATE, ALGO_END_DATE, \
     ALGO_HYPERPARAMS
+
+import datetime as dttm
 
 class Launcher(BaseLauncher):
     def __init__(self, score):
@@ -25,5 +27,9 @@ class Launcher(BaseLauncher):
 if __name__ == "__main__":
     score = SharpeRatioScore()
     launcher = Launcher(score)
-    sr = launcher.Run()
+    sr = launcher.RunUntil(dttm.date(2008, 1, 1), False)
+    sr = launcher.RunUntil(dttm.date(2010, 1, 1), False)
+    sr = launcher.RunUntil(dttm.date(2012, 1, 1), False)
+    sr = launcher.Run(False)
     print("Sharpe ratio = {}".format(sr))
+

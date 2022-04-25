@@ -31,7 +31,6 @@ class LocalLauncher(BaseLauncher):
                                    hyperparams)
         pass
 
-
 # TODO: predict() - ?
 class LocalEstimator(BaseEstimator):
     def __init__(self, metric: BaseScore, data_provider: BaseDataProvider, \
@@ -57,70 +56,79 @@ class LocalEstimator(BaseEstimator):
         self.DIMRED_KIND = DIMRED_KIND
         self.DIMRED_RATIO = DIMRED_RATIO
 
-        self.PREPROC_DIMS = int(self.TOP_COUNT * self.PREPROC_RATIO)
-        self.PREPROC_PARAMS = {
+    def BuildHyperparams(self):
+        hyperparams = {}
+        hyperparams["WINDOW_SIZE"] = self.WINDOW_SIZE
+        hyperparams["REBALANCE_PERIOD"] = self.REBALANCE_PERIOD
+        hyperparams["TOP_COUNT"] = self.TOP_COUNT # in 1..=36
+        hyperparams["TARGET_RETURN"] = self.TARGET_RETURN
+        # {None, 'pca', 'to_norm_pca', 'mppca'}
+        hyperparams["PREPROC_KIND"] = self.PREPROC_KIND
+        # {None, 'pca', 'kpca', 'mcd'}
+        hyperparams["DIMRED_KIND"] = self.DIMRED_KIND
+
+        hyperparams["PREPROC_DIMS"] = int(self.TOP_COUNT * self.PREPROC_RATIO)
+        hyperparams["DIMRED_DIMS"] = int(self.TOP_COUNT * self.DIMRED_RATIO)
+
+        hyperparams["PREPROC_PARAMS"] = {
                 'pca': {
-                    'kept_components': self.PREPROC_DIMS,
+                    'kept_components': hyperparams["PREPROC_DIMS"],
                 },
                 'to_norm_pca': {
-                    'kept_components': self.PREPROC_DIMS,
+                    'kept_components': hyperparams["PREPROC_DIMS"],
                 },
                 'mppca': {
-                    'kept_components': self.PREPROC_DIMS,
+                    'kept_components': hyperparams["PREPROC_DIMS"],
                     'n_models': 2,
                 },
             }
-        self.DIMRED_DIMS = int(self.TOP_COUNT * self.DIMRED_RATIO)
-        self.DIMRED_PARAMS = {
+        hyperparams["DIMRED_PARAMS"] = {
                 'pca': {
-                    'n_components': self.DIMRED_DIMS,
+                    'n_components': hyperparams["DIMRED_DIMS"],
                 },
                 'kpca': {
-                    'n_components': self.DIMRED_DIMS,
+                    'n_components': hyperparams["DIMRED_DIMS"],
                     'kernel': 'poly',
                 },
                 'mcd': {},
             }
+
+        return hyperparams
     
     def fit(self, data: pd.DatetimeIndex):
-        window = data[:self.WINDOW_SIZE]
-        start_date = window[0].date()
-        end_date = window[-1].date()
-        params = {
-                k: v for k, v in self.get_params().items() if k in [ \
-                        'WINDOW_SIZE', 'REBALANCE_PERIOD', \
-                        'TOP_COUNT', 'TARGET_RETURN', \
-                        'PREPROC_KIND', 'PREPROC_RATIO', \
-                        'DIMRED_KIND', 'DIMRED_RATIO' \
-                    ]
-            }
-        print("Fitting new instance...")
+        start_date = data[0].date()
+        end_date = data[-1].date()
+        params = self.BuildHyperparams()
         self.launcher = LocalLauncher(self.metric, self.data_provider, \
                 start_date=start_date, end_date=self.global_end_date, \
                 **params)
-        self.launcher.RunUntil(end_date) # We don't nee score here Run(w[0], w[-1])
-        return self
+        fit_score = self.launcher.RunUntil(end_date)
+        print("FIT {}-{} SCORE {}".format(start_date, end_date, fit_score))
 
     def predict(self, data: pd.DatetimeIndex):
+        start_date = data[0].date()
         end_date = data[-1].date()
-        self.score_val = self.launcher.RunUntil(end_date) # TODO: Run between Run(data[0], data[-1])
+        self.launcher.AdvanceDays(start_date)
+        self.score_val = self.launcher.AdvanceDays(end_date, zero_score=True)
+        print("PREDICT {}-{} SCORE {}".format(start_date, end_date, self.score_val))
 
-    def score(self, data: pd.DatetimeIndex) -> float:
+    def score(self, data: pd.DatetimeIndex) -> np.float64:
         assert self.launcher is not None
+        self.predict(data)
         return self.score_val
 
 if __name__ == "__main__":
     params_grid = { \
         'WINDOW_SIZE': [150, 300, 450, 600, 750], \
         'REBALANCE_PERIOD': [300, 450, 600, 750, 900], \
-        'TOP_COUNT': [5, 10, 15, 20, 25], \
+        'TOP_COUNT': [15], \
         'TARGET_RETURN': [0.0016, 0.0020, 0.0024, 0.0028], \
         'PREPROC_KIND': [None, 'pca', 'to_norm_pca', 'mppca'], \
         'PREPROC_RATIO': [0.2, 0.4, 0.6, 0.8], \
         'DIMRED_KIND': [None, 'pca', 'kpca', 'mcd'], \
         'DIMRED_RATIO': [0.2, 0.4, 0.6, 0.8], \
     }
-    max_window = max(params_grid['WINDOW_SIZE'])
+    max_window = max(params_grid['WINDOW_SIZE']) + 1
     metric = SharpeRatioScore(risk_free=0.0)
     data_provider = YahooDataProvider(ALGO_TICKERS, \
             ALGO_START_DATE - dttm.timedelta(days=max_window), ALGO_END_DATE)
@@ -128,15 +136,16 @@ if __name__ == "__main__":
             ALGO_START_DATE, ALGO_END_DATE)
 
     # TODO: to choose init params for TimeSeriesSplit
-    tscv = TimeSeriesSplit(n_splits=5)
+    tscv = TimeSeriesSplit(n_splits=3)
     # TODO: to choose init params for RandomizedSearchCV
     restricted_grid = {
             name: [vals[0], vals[-1]] for name, vals in params_grid.items()
         }
     rs = RandomizedSearchCV(\
             estimator=runner, \
-            param_distributions=restricted_grid, \
-            cv=tscv)
+            param_distributions=params_grid, \
+            cv=tscv, \
+            n_iter=1000)
 
     data = pd.date_range(start=ALGO_START_DATE, end=ALGO_END_DATE)
     rs.fit(data)
