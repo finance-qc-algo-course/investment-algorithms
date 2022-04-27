@@ -1,23 +1,14 @@
+# QuantBook Analysis Tool 
+# For more information see [https://www.quantconnect.com/docs/research/overview]
+
 from catboost import CatBoostClassifier
+import lightgbm as lgb
 import numpy as np
 import pandas as pd
 import json
 import stockstats
 
-def init_QB():
-    qb = QuantBook()
-    spy = qb.AddEquity("SPY")
-    history = qb.History(qb.Securities.Keys, 360, Resolution.Daily)
-
-def load_model():
-    qb = QuantBook()
-    model_str = qb.Download('https://drive.google.com/uc?export=download&id=1OrJQCUg62aoEwB8fEkIjLIgDnzppfWKg').encode('utf-8', 'ignore')
-    type(model_str)
-    model = CatBoostClassifier()
-    model.load_model(blob=model_str)
-    return model
-    
-def apply_indicators(data):
+def apply_indicators(dataset):
     INDICATORS = [
         "volume_26_ema", "volume_42_ema", "volume_86_ema", "volume_174_ema", "volume_363_ema", 
         "volume_42_smma",
@@ -41,16 +32,17 @@ def apply_indicators(data):
         'close_10_kama', 'close_174_kama',
         'supertrend', 'supertrend_ub', 'supertrend_lb'
     ]
-    DROP_COLUMNS = ["t", "n", "vw"]
-    RENAME_COLUMNS = {"c": "close", "h": "high", "l": "low", "o": "open", "v": "volume"}
+    # DROP_COLUMNS = ["t", "n", "vw"]
+    # RENAME_COLUMNS = {"c": "close", "h": "high", "l": "low", "o": "open", "v": "volume"}
 
     result_dataset = dataset.copy()
     
-    result_dataset.drop(DROP_COLUMNS, axis=1, inplace=True)
-    result_dataset.reset_index(drop=True, inplace=True)
-    result_dataset.rename(RENAME_COLUMNS, axis=1, inplace=True)
+    # result_dataset.drop(DROP_COLUMNS, axis=1, inplace=True)
+    # result_dataset.reset_index(drop=True, inplace=True)
+    # result_dataset.rename(RENAME_COLUMNS, axis=1, inplace=True)
 
-    result_dataset = StockDataFrame(result_dataset)
+    # result_dataset = StockDataFrame(result_dataset)
+    result_dataset = stockstats.StockDataFrame(result_dataset)
     
     result_dataset['boll_dif'] = result_dataset['boll_ub'] - result_dataset['boll_lb']
     # result_dataset['pdi_mdi'] = result_dataset['pdi'] - result_dataset['mdi']
@@ -62,9 +54,18 @@ def apply_indicators(data):
     result_dataset = result_dataset[INDICATORS]
 
     return result_dataset
+    
+class Model:
+    def __init__(self):
+        self.load_model()
+    
+    def load_model(self):
+        qb = QuantBook()
+        # model_str = qb.Download('https://drive.google.com/uc?export=download&id=1kR7_CG7glpD3H7DjeOhzoD6eiAEItqy5')
+        model_str = qb.Download('https://drive.google.com/uc?export=download&id=13EwMaSOT-LrWxFdTQhXMjxulmSgUodkV')
+        self.model = lgb.Booster(model_str=model_str)
+        
+    def predict_valotile(self, data):
+        data = apply_indicators(data)
+        return (self.model.predict(data[-30:]).max() > 0.5)
 
-def predict_valotile(data):
-    data = pd.DataFrame(data)
-    data = apply_indicators(data)
-    model = load_model()
-    return model.predict(data.iloc[-1])
