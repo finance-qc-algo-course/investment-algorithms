@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import datetime as dttm
+import scipy.stats as sps
 from sklearn.base import BaseEstimator
 from sklearn.model_selection import RandomizedSearchCV, TimeSeriesSplit
 
@@ -36,7 +37,7 @@ class LocalEstimator(BaseEstimator):
     def __init__(self, metric: BaseScore, data_provider: BaseDataProvider, \
             global_start_date: dttm.date, global_end_date: dttm.date, \
             WINDOW_SIZE=365, REBALANCE_PERIOD=365, TOP_COUNT=15, \
-            TARGET_RETURN=0.0, PREPROC_KIND=None, PREPROC_RATIO=1.0, \
+            TARGET_RETURN=0.0, TARGET_QUANTILE=0.1, PREPROC_KIND=None, PREPROC_RATIO=1.0, \
             DIMRED_KIND=None, DIMRED_RATIO=0.8, THRESHOLD=1e-5):
         super().__init__()
 
@@ -56,6 +57,7 @@ class LocalEstimator(BaseEstimator):
         self.DIMRED_KIND = DIMRED_KIND
         self.DIMRED_RATIO = DIMRED_RATIO
         self.THRESHOLD = THRESHOLD
+        self.TARGET_QUANTILE = TARGET_QUANTILE
 
     def BuildHyperparams(self):
         hyperparams = {}
@@ -63,6 +65,7 @@ class LocalEstimator(BaseEstimator):
         hyperparams["REBALANCE_PERIOD"] = self.REBALANCE_PERIOD
         hyperparams["TOP_COUNT"] = self.TOP_COUNT # in 1..=36
         hyperparams["TARGET_RETURN"] = self.TARGET_RETURN
+        hyperparams["TARGET_QUANTILE"] = self.TARGET_QUANTILE
         # {None, 'pca', 'to_norm_pca', 'mppca', 'to_norm_mppca'}
         hyperparams["PREPROC_KIND"] = self.PREPROC_KIND
         # {None, 'pca', 'kpca', 'mcd'}
@@ -129,14 +132,15 @@ class LocalEstimator(BaseEstimator):
 
 if __name__ == "__main__":
     params_grid = { \
-        'WINDOW_SIZE': [150, 300, 450, 600, 750], \
-        'REBALANCE_PERIOD': [300, 450, 600, 750, 900], \
-        'TOP_COUNT': [20, 25, 30], \
-        'TARGET_RETURN': [0.0016, 0.0020, 0.0024, 0.0028], \
+        'WINDOW_SIZE': [300, 450, 600, 750], \
+        'REBALANCE_PERIOD': [150, 300, 450, 600, 750, 900], \
+        'TOP_COUNT': np.linspace(15, 36, 22, dtype=int), \
+        'TARGET_RETURN': [0.2], \
+        'TARGET_QUANTILE': sps.beta(8, 3), \
         'PREPROC_KIND': [None, 'pca', 'to_norm_pca', 'mppca', 'to_norm_mppca'], \
-        'PREPROC_RATIO': [2, 3, 4, 0.2, 0.4, 0.6, 0.8], \
+        'PREPROC_RATIO': sps.uniform(loc=0.1, scale=0.8), \
         'DIMRED_KIND': [None, 'pca', 'kpca'], # ['pca'], \
-        'DIMRED_RATIO': [0.2, 0.4, 0.6, 0.8], \
+        'DIMRED_RATIO': sps.uniform(loc=0.1, scale=0.8), \
     }
     max_window = max(params_grid['WINDOW_SIZE']) + 1
     metric = SharpeRatioScore(risk_free=0.0)
@@ -148,14 +152,11 @@ if __name__ == "__main__":
     # TODO: to choose init params for TimeSeriesSplit
     tscv = TimeSeriesSplit(n_splits=3)
     # TODO: to choose init params for RandomizedSearchCV
-    restricted_grid = {
-            name: [vals[0], vals[-1]] for name, vals in params_grid.items()
-        }
     rs = RandomizedSearchCV(\
             estimator=runner, \
             param_distributions=params_grid, \
             cv=tscv, \
-            n_iter=250,
+            n_iter=1000,
             random_state=15,
             n_jobs=-2,
             # verbose=2

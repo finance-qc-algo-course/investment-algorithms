@@ -58,7 +58,7 @@ class SharpeRatioScore(BaseScore):
         if len(self.returns) <= 1:
             return np.float64(0.0)
         mean = np.power(np.mean(self.returns) + 1.0, BaseScore.TRADE_DAYS) - 1.0
-        var = np.var(self.returns) * BaseScore.TRADE_DAYS
+        var = np.sqrt(np.var(self.returns) * BaseScore.TRADE_DAYS)
         return np.divide(mean - self.risk_free, var)
 
 # TODO check if thiss is the right way according to the Lean engine:
@@ -79,9 +79,7 @@ class SortinoRatioScore(BaseScore):
             return np.float64(0.0)
         mean = np.power(np.mean(np.maximum(self.returns, 0.0)) + 1.0, \
                 BaseScore.TRADE_DAYS) - 1.0
-        # print("--------------------MEAN--------------------", mean)
-        var = np.var(self.returns) * BaseScore.TRADE_DAYS
-        # print("--------------------VAR--------------------", var)
+        var = np.sqrt(np.var(self.returns) * BaseScore.TRADE_DAYS)
         return np.divide(mean - self.risk_free, var)
 
 
