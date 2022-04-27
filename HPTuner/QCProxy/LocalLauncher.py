@@ -2,6 +2,7 @@ import abc
 import numpy as np
 import pandas as pd
 import datetime as dttm
+from scipy import stats
 from typing import Callable, List
 
 from .LocalDataProvider import BaseDataProvider, YahooDataProvider
@@ -62,6 +63,40 @@ class SortinoRatioScore(BaseScore):
                 BaseScore.TRADE_DAYS) - 1.0
         var = np.var(self.returns) * BaseScore.TRADE_DAYS
         return np.divide(mean - self.risk_free, var)
+
+
+class VaRScore(BaseScore):
+    def __init__(self, alpha: float = 0.95):
+        super().__init__()
+        self.returns = np.array([], dtype=np.float64)
+        self.alpha = alpha
+
+    def Zero(self):
+        self.returns = np.array([], dtype=np.float64)
+
+    def Update(self, delta_returns: np.ndarray):
+        self.returns = np.append(self.returns, delta_returns)
+
+    def Eval(self) -> np.float64:
+        return stats.norm.ppf(1 - self.alpha, np.mean(self.returns), np.std(self.returns))
+
+
+class CVaRScore(BaseScore):
+    def __init__(self, alpha: float = 0.95):
+        super().__init__()
+        self.returns = np.array([], dtype=np.float64)
+        self.alpha = alpha
+
+    def Zero(self):
+        self.returns = np.array([], dtype=np.float64)
+
+    def Update(self, delta_returns: np.ndarray):
+        self.returns = np.append(self.returns, delta_returns)
+
+    def Eval(self) -> np.float64:
+        return 1 / (1 - self.alpha) * stats.norm.pdf(stats.norm.ppf(self.alpha)) * np.std(self.returns) - np.mean(
+            self.returns)
+
 
 class BaseLauncher:
     def __init__(self, score: BaseScore, data_provider: BaseDataProvider = None):
