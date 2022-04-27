@@ -4,8 +4,8 @@ from QCProxy.LocalHistoryManager import LocalHistoryManager
 from QCProxy.LocalEventManager import LocalEventManager
 
 from QCProxy.algo.FixedReturnMarkovitz import Algorithm, \
-    ALGO_LOOKBACK, ALGO_CASH, ALGO_TICKERS, ALGO_START_DATE, ALGO_END_DATE, \
-    ALGO_HYPERPARAMS
+    ALGO_LOOKBACK, ALGO_CASH, ALGO_TICKERS, ALGO_START_DATE, ALGO_END_DATE, ALGO_HYPERPARAMS
+
 
 import datetime as dttm
 

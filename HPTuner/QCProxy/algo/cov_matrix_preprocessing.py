@@ -4,6 +4,8 @@ from sklearn.decomposition import PCA
 import scipy.stats as sps
 
 from .mppca import MPPCA
+from .probabilistic_transformations import laplace_to_norm
+
 
 def PCA_preprocessing(returns: np.ndarray, kept_components: int):
     scaler = preprocessing.StandardScaler().fit(returns)
@@ -16,16 +18,10 @@ def PCA_preprocessing(returns: np.ndarray, kept_components: int):
     transformed_top_returns[:,kept_components:] = 0
     simplified_returns = pca.inverse_transform(transformed_top_returns)
 
-    return simplified_returns.T
+    return np.cov(simplified_returns.T)
 
 def to_norm_PCA_preprocessing(returns: np.ndarray, kept_components: int):
-    returns_norm = returns.copy()
-    for col in range(returns.shape[1]):
-        loc, scale = sps.laplace.fit(returns[:, col])
-        eps = 0.000001
-        returns_norm[:, col] = np.clip(sps.laplace(loc, scale).cdf(returns[:, col]), 0.000001, 1 - eps)
-        returns_norm[:, col] = sps.norm().ppf(returns_norm[:, col])
-    
+    returns_norm = laplace_to_norm(returns)
     return PCA_preprocessing(returns_norm, kept_components)
 
 def MPPCA_preprocessing(returns: np.ndarray, kept_components: int, n_models: int):
@@ -36,4 +32,8 @@ def MPPCA_preprocessing(returns: np.ndarray, kept_components: int, n_models: int
     mppca.fit(returns)
     mppca_returns = mppca.transform(returns_scaled)
 
-    return mppca_returns.T
+    return np.cov(mppca_returns.T)
+
+def to_norm_MPPCA_preprocessing(returns: np.ndarray, kept_components: int, n_models: int):
+    returns_norm = laplace_to_norm(returns)
+    return MPPCA_preprocessing(returns_norm, kept_components, n_models)
