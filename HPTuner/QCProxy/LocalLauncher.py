@@ -39,9 +39,12 @@ class SharpeRatioScore(BaseScore):
         self.returns = np.append(self.returns, delta_returns)
 
     def Eval(self) -> np.float64:
+        if len(self.returns) <= 1:
+            return np.float64(0.0)
         mean = np.power(np.mean(self.returns) + 1.0, BaseScore.TRADE_DAYS) - 1.0
         # print("--------------------MEAN--------------------", mean)
         var = np.var(self.returns) * BaseScore.TRADE_DAYS
+        # print("--------------------VAR--------------------", var)
         return np.divide(mean - self.risk_free, var)
 
 # TODO check if thiss is the right way according to the Lean engine:
@@ -58,9 +61,13 @@ class SortinoRatioScore(BaseScore):
         self.returns = np.append(self.returns, delta_returns)
 
     def Eval(self) -> np.float64:
+        if len(self.returns) <= 1:
+            return np.float64(0.0)
         mean = np.power(np.mean(np.maximum(self.returns, 0.0)) + 1.0, \
                 BaseScore.TRADE_DAYS) - 1.0
+        # print("--------------------MEAN--------------------", mean)
         var = np.var(self.returns) * BaseScore.TRADE_DAYS
+        # print("--------------------VAR--------------------", var)
         return np.divide(mean - self.risk_free, var)
 
 class BaseLauncher:
@@ -186,7 +193,7 @@ class BaseLauncher:
         self.score.Update(delta_returns)
         self.cur_date = date
 
-        return self.score.Eval()
+        return self.score.Eval() if zero_score else np.nan
 
     def CalculateNextReturns(self, date: dttm.date) -> np.ndarray:
         assert date > self.cur_date
