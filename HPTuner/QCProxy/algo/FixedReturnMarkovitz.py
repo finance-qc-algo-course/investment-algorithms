@@ -47,6 +47,7 @@ ALGO_HYPERPARAMS = {
         },
         "mcd": {},
     },
+    "THRESHOLD": 1e-5,
 }
 
 ALGO_TICKERS = custom_tickers.get_custom_top_tickers(ALGO_HYPERPARAMS["TOP_COUNT"])
@@ -79,6 +80,7 @@ class Algorithm(Interface):
         self.DIMRED_KIND = hyperparams["DIMRED_KIND"]
         self.DIMRED_DIMS = hyperparams["DIMRED_DIMS"]
         self.DIMRED_PARAMS = hyperparams["DIMRED_PARAMS"]
+        self.THRESHOLD = hyperparams["THRESHOLD"]
 
     def InitializeAlgorithm(self):
         # Markovitz portfolio data
@@ -97,22 +99,25 @@ class Algorithm(Interface):
         prices = self.MarkovitzGetPrices(days=self.WINDOW_SIZE)
         self.MarkovitzRebalance(prices)
 
+    def RegularizeCovarianceMatrix(self, EPS):
+        self.sigma = self.sigma + np.eye(self.sigma.shape[0]) * EPS
+
     def MarkovitzRebalance(self, prices):
         prices = prices.T
         self.MarkovitzUpdateParams(prices)
         prices = self.MarkovitzPreprocess(prices, kind=self.PREPROC_KIND)
         self.MarkovitzReduceDimensions(prices, kind=self.DIMRED_KIND)
         self.SetFixedReturn()
-        self.MarkovitzOptimize()
+        self.RegularizeCovarianceMatrix(1e-10)
+        self.MarkovitzOptimize(self.THRESHOLD)
         self.TransformToTickers()
         self.SetWeights(self.weights)
 
     def TransformToTickers(self):
         if self.DIMRED_KIND == 'pca' or self.DIMRED_KIND == 'kpca':
-            print(self.components_.shape, self.weights.shape)
-            self.weights = self.components_.T.dot(self.weights)
+            self.weights = self.components_.to_numpy().T.dot(self.weights)
 
-    def MarkovitzOptimize(self):
+    def MarkovitzOptimize(self, threshold):
         # XXX sum_weight = np.sum(self.weights)
         # XXX self.weights = np.divide(self.weights, sum_weight)
         w = cp.Variable(self.sigma.shape[0])
@@ -125,13 +130,15 @@ class Algorithm(Interface):
 
         prob = cp.Problem(objective, constraints)
         try:
-            prob.solve()
+            prob.solve(solver='SCS')
         except:
             warnings.warn('''SolverError: solver can't solve this task. 
                 Trying to solve with another solver''')
             prob.solve(solver='CVXOPT')
 
         self.weights = w.value
+        self.weights[self.weights < threshold] = 0
+        self.weights = self.weights / np.sum(self.weights)
 
     def MarkovitzGetPrices(self, days=None):
         days = days or self.WINDOW_SIZE
@@ -139,14 +146,14 @@ class Algorithm(Interface):
         symbols = np.unique(hist.index.get_level_values(0).to_numpy())
         idx = functools.reduce(np.intersect1d, \
                         (hist.loc[s].index for s in symbols))
-        
+
         prices = np.array([ \
                 ((hist.loc[s].loc[idx]['open'].to_numpy()[1:] - \
                   hist.loc[s].loc[idx]['open'].to_numpy()[:-1]) \
                   / hist.loc[s].loc[idx]['open'].to_numpy()[:-1]) \
                 for s in symbols \
                 ])
-        
+
         return prices
 
     def SetFixedReturn(self):
@@ -180,7 +187,7 @@ class Algorithm(Interface):
         else:
             raise ValueError('{} is not a valid price preprocessing kind'\
                     .format(str(kind)))
-        
+
         return prices
 
     def MarkovitzReduceDimensions(self, prices, kind=None):
@@ -204,12 +211,12 @@ class Algorithm(Interface):
             self.components_[self.components_ < 0] = 0
             # rebalance componets, so their sum is 1 now 
             self.components_ = self.components_.div(self.components_.sum(axis=1), axis=0)
-            self.components_.fillna(0)
+            self.components_.fillna(1 / len(self.components_.columns.to_numpy()), inplace=True)
             # data of returns by components
             new_data = prices @ self.components_.to_numpy().T
-            optimized_data = pd.DataFrame(columns=np.linspace(1, new_data.shape[1], new_data.shape[1], dtype=int), 
-                                                data=new_data)
+            optimized_data = pd.DataFrame(data=new_data, columns=np.linspace(1, new_data.shape[1], new_data.shape[1]))
             # change mu and sigma
+
             self.mu = optimized_data[optimized_data.columns].mean().to_numpy()
             self.sigma = optimized_data[optimized_data.columns].cov()
         elif kind == 'mcd':
@@ -217,5 +224,5 @@ class Algorithm(Interface):
             mcd.fit(prices)
             self.sigma = mcd.covariance_
         else:
-            raise ValueError('{} is not a valid dimension reduction kind'\
+            raise ValueError('{} is not+ a valid dimension reduction kind'\
                     .format(str(kind)))

@@ -23,6 +23,21 @@ class BaseScore:
     def Eval(self) -> np.float64:
         pass
 
+class ReturnScore(BaseScore):
+    def __init__(self, risk_free: float = 0.0):
+        super().__init__()
+        self.risk_free = risk_free
+        self.returns = np.array([], dtype=np.float64)
+
+    def Zero(self):
+        self.returns = np.array([], dtype=np.float64)
+
+    def Update(self, delta_returns: np.ndarray):
+        self.returns = np.append(self.returns, delta_returns)
+
+    def Eval(self) -> np.float64:
+        return np.product(1 + self.returns)
+
 # See
 # https://github.com/QuantConnect/Lean/blob/master/Common/Statistics/Statistics.cs#L462-L477
 # https://github.com/QuantConnect/Lean/blob/master/Common/Statistics/Statistics.cs#L564-L567
@@ -42,10 +57,7 @@ class SharpeRatioScore(BaseScore):
         if len(self.returns) <= 1:
             return np.float64(0.0)
         mean = np.power(np.mean(self.returns) + 1.0, BaseScore.TRADE_DAYS) - 1.0
-        print(self.returns)
-        print("--------------------MEAN--------------------", mean)
         var = np.var(self.returns) * BaseScore.TRADE_DAYS
-        print("--------------------VAR--------------------", var)
         return np.divide(mean - self.risk_free, var)
 
 # TODO check if thiss is the right way according to the Lean engine:

@@ -37,7 +37,7 @@ class LocalEstimator(BaseEstimator):
             global_start_date: dttm.date, global_end_date: dttm.date, \
             WINDOW_SIZE=365, REBALANCE_PERIOD=365, TOP_COUNT=15, \
             TARGET_RETURN=0.0, PREPROC_KIND=None, PREPROC_RATIO=1.0, \
-            DIMRED_KIND=None, DIMRED_RATIO=1.0):
+            DIMRED_KIND=None, DIMRED_RATIO=0.8, THRESHOLD=1e-5):
         super().__init__()
 
         self.global_start_date = global_start_date
@@ -55,6 +55,7 @@ class LocalEstimator(BaseEstimator):
         self.PREPROC_RATIO = PREPROC_RATIO
         self.DIMRED_KIND = DIMRED_KIND
         self.DIMRED_RATIO = DIMRED_RATIO
+        self.THRESHOLD = THRESHOLD
 
     def BuildHyperparams(self):
         hyperparams = {}
@@ -73,6 +74,7 @@ class LocalEstimator(BaseEstimator):
             hyperparams["PREPROC_DIMS"] = int(self.PREPROC_RATIO)
 
         hyperparams["DIMRED_DIMS"] = int(self.TOP_COUNT * self.DIMRED_RATIO)
+        hyperparams["THRESHOLD"] = self.THRESHOLD
 
         hyperparams["PREPROC_PARAMS"] = {
                 'pca': {
@@ -131,17 +133,17 @@ if __name__ == "__main__":
         'REBALANCE_PERIOD': [300, 450, 600, 750, 900], \
         'TOP_COUNT': [20, 25, 30], \
         'TARGET_RETURN': [0.0016, 0.0020, 0.0024, 0.0028], \
-        'PREPROC_KIND': [None], #, 'pca', 'to_norm_pca', 'mppca', 'to_norm_mppca'], \
+        'PREPROC_KIND': [None, 'pca', 'to_norm_pca', 'mppca', 'to_norm_mppca'], \
         'PREPROC_RATIO': [2, 3, 4, 0.2, 0.4, 0.6, 0.8], \
-        'DIMRED_KIND': [None], # ['pca'], \
-        'DIMRED_RATIO': [None] # [0.2, 0.4, 0.6, 0.8], \
+        'DIMRED_KIND': [None, 'pca', 'kpca'], # ['pca'], \
+        'DIMRED_RATIO': [0.2, 0.4, 0.6, 0.8], \
     }
     max_window = max(params_grid['WINDOW_SIZE']) + 1
     metric = SharpeRatioScore(risk_free=0.0)
     data_provider = YahooDataProvider(ALGO_TICKERS, \
             ALGO_START_DATE - dttm.timedelta(days=max_window), ALGO_END_DATE)
     runner = LocalEstimator(metric, data_provider, \
-            ALGO_START_DATE, ALGO_END_DATE)
+            ALGO_START_DATE, ALGO_END_DATE, THRESHOLD=1e-5)
 
     # TODO: to choose init params for TimeSeriesSplit
     tscv = TimeSeriesSplit(n_splits=3)
@@ -153,11 +155,15 @@ if __name__ == "__main__":
             estimator=runner, \
             param_distributions=params_grid, \
             cv=tscv, \
-            n_iter=10)
+            n_iter=250,
+            random_state=15,
+            n_jobs=-2,
+            # verbose=2
+    )
 
     data = pd.date_range(start=ALGO_START_DATE, end=ALGO_END_DATE)
     rs.fit(data)
 
     print("BEST PARAMS:")
     print(rs.best_params_)
-
+    print(rs.best_score_)
