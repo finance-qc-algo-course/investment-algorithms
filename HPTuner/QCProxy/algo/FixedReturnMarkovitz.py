@@ -72,6 +72,7 @@ class Algorithm(Interface):
         self.REBALANCE_PERIOD = hyperparams["REBALANCE_PERIOD"]
         self.TOP_COUNT = hyperparams["TOP_COUNT"] # in 1..=36
         self.TARGET_RETURN = hyperparams["TARGET_RETURN"]
+        self.TARGET_QUANTILE = hyperparams["TARGET_QUANTILE"]
         # {None, 'pca', 'to_norm_pca', 'mppca'}
         self.PREPROC_KIND = hyperparams["PREPROC_KIND"]
         self.PREPROC_DIMS = hyperparams["PREPROC_DIMS"]
@@ -108,7 +109,7 @@ class Algorithm(Interface):
         prices = self.MarkovitzPreprocess(prices, kind=self.PREPROC_KIND)
         self.MarkovitzReduceDimensions(prices, kind=self.DIMRED_KIND)
         self.SetFixedReturn()
-        self.RegularizeCovarianceMatrix(1e-10)
+        self.RegularizeCovarianceMatrix(1e-8)
         self.MarkovitzOptimize(self.THRESHOLD)
         self.TransformToTickers()
         self.SetWeights(self.weights)
@@ -157,7 +158,10 @@ class Algorithm(Interface):
         return prices
 
     def SetFixedReturn(self):
-        # TODO: adjust quatntiles
+        # TODO: adjust quantiles
+        if self.TARGET_QUANTILE is not None:
+            self.fixed_return = np.quantile(self.mu, self.TARGET_QUANTILE)
+            return
         if 1.0 + self.TARGET_RETURN < np.min(self.mu):
             self.fixed_return = np.quantile(self.mu, 0.5)
         elif 1.0 + self.TARGET_RETURN > np.max(self.mu):
