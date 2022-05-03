@@ -150,10 +150,8 @@ class NDR(TransformerMixin, BaseEstimator):
         s = np.zeros(r)   
         for i in range(r):
             s[i] = sum((components[i] - np.mean(components))**2) / (len(components[0]) - 1)
-
         c = np.zeros(r)
         for i in range(r):
             c[i] = s[i] / sum(s)
-
         ans = components.T @ c
         return ans
