@@ -62,10 +62,10 @@ class Model:
     def load_model(self):
         qb = QuantBook()
         # model_str = qb.Download('https://drive.google.com/uc?export=download&id=1kR7_CG7glpD3H7DjeOhzoD6eiAEItqy5')
-        model_str = qb.Download('https://drive.google.com/uc?export=download&id=13EwMaSOT-LrWxFdTQhXMjxulmSgUodkV')
+        # model_str = qb.Download('https://drive.google.com/uc?export=download&id=13EwMaSOT-LrWxFdTQhXMjxulmSgUodkV')
+        model_str = qb.Download('https://drive.google.com/uc?export=download&id=1Gq-9w4LDyEy-fRReJ_ImxojsrCU9STmZ')
         self.model = lgb.Booster(model_str=model_str)
         
     def predict_valotile(self, data):
         data = apply_indicators(data)
-        return (self.model.predict(data[-30:]).max() > 0.5)
-
+        return self.model.predict(data[-1:])
