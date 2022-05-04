@@ -1,0 +1,30 @@
+train:
+  period: "15min"
+  file_period: "5min"
+  train_start: "2018-02-01 00:00:00"
+  train_end: "2021-07-31 23:59:59"
+  test_end: "2022-01-31 23:59:59"
+  shifts_count: 24
+  shifts_step: 2
+  batch_size: 256
+  fee: 0.001
+  threshold: 0.0005
+  num_epochs: 25
+  coef: 100
+  models_dir: "best_models"
+  plots_dir: "plots"
+
+model:
+  model_name: "ModelSimpleIndNews"
+  save_name: "ModelSimpleIndNews_1"
+
+model_params:
+  hidden_size: 128
+  fc_size: 48
+  num_layers: 1
+  dropout: 0.3
+  embedding_size: 80
+  hidden_news_size: 32
+  hidden_title_size: 24
+  max_news_len: 224
+  max_title_len: 24

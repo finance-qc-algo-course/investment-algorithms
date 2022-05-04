@@ -1,0 +1,28 @@
+stages:
+  get data:
+    cmd: dvc pull
+    outs:
+    - /data
+
+  preprocess:
+    cmd: python3 src/crypto_indicators_cli.py prepare-data
+    deps:
+    - /data
+    - src
+    outs:
+    - data_crypto_prices
+    - data_crypto
+
+  train:
+    cmd: python3 src/crypto_indicators_cli.py train-model
+    deps:
+    - data_crypto_prices
+    - data_crypto
+    - src
+    params:
+    - model
+    - model_params
+    - train
+    outs:
+    - best_models
+    - plots
