@@ -6,7 +6,14 @@ import warnings
 
 from sklearn.preprocessing import StandardScaler
 
+import torch
+import torchtext
 from torch.utils.data import DataLoader, Dataset
+
+from .paths import NEWS_DIR
+
+MAX_LEN = 224
+MAX_TITLE_LEN = 24
 
 
 def get_prices(tickers, prices_dir):
@@ -127,47 +134,72 @@ def prepare_features(ticker, shifts, prices_dir, output_dir, start_date='2017-06
 
 
 class IndicatorsNewsDataset(Dataset):
-    def __init__(self, train, target, shifts=4 * 12, *, news_dates=None, news=None,
-                 titles=None, vocab=None, max_news_len=None, max_title_len=None):
-        self.train = train.astype(np.float32)
-        self.target = target.astype(np.float32)
+    def __init__(self, X, y, shifts=4 * 12, *, news=None, vocab=None, max_len=MAX_LEN, max_title_len=MAX_TITLE_LEN):
+        self.y = y.astype(np.float32)
+        self.X = X.astype(np.float32)
 
         if isinstance(shifts, int):
             self.shifts = np.arange(shifts)
         else:
-            self.shifts = np.array(shifts).sort()
+            self.shifts = shifts
+            np.array(self.shifts).sort()
         self.shifts = self.shifts[::-1]
-        self.shift = self.shifts.max(initial=0)
+        self.shift = self.shifts.max()
 
         self.news, self.len_news = pd.DataFrame(), pd.DataFrame()
         self.titles, self.len_titles = pd.DataFrame(), pd.DataFrame()
+        self.bos = 2
+        self.eos = 3
+        self.default_news = [self.bos, self.eos] + [0] * (max_len - 2)
+        self.default_title = [self.bos, self.eos] + [0] * (max_title_len - 2)
 
-        if news is not None and vocab is not None and news_dates is not None and titles is not None:
-            self.len_news = pd.DataFrame([len(text) for text in news],
-                                         index=news_dates)
-            self.news = pd.DataFrame([vocab(text) + [0] * (max_news_len - len(text)) for text in news],
-                                     index=news_dates)
+        if news is not None and vocab is not None:
+            self.bos = vocab['<bos>']
+            self.eos = vocab['<eos>']
 
-            self.len_titles = pd.DataFrame([len(title) for title in titles],
-                                           index=news_dates)
-            self.titles = pd.DataFrame([vocab(title) + [0] * (max_title_len - len(title)) for title in titles],
-                                       index=news_dates)
+            self.len_news = pd.Series(
+                [len(text) for text in news['body']],
+                index=news.index
+            )
+            self.news = pd.Series(
+                [vocab(text.tolist()) + [0] * (max_len - len(text)) for text in news['body']],
+                index=news.index
+            )
+
+            self.len_titles = pd.Series(
+                [len(title) for title in news['title']],
+                index=news.index
+            )
+            self.titles = pd.Series(
+                [vocab(title.tolist()) + [0] * (max_title_len - len(title)) for title in news['title']],
+                index=news.index
+            )
 
     def __len__(self):
-        return self.train.shape[0] - self.shift
+        return self.X.shape[0] - self.shift
 
     def __getitem__(self, index):
-        if index > 0:
-            begin_news = self.train.index[index - 1]
-            end_news = self.train.index[index]
-            index_news = (begin_news < self.news.index) & (self.news.index <= end_news)
-        else:
-            index_news = []
+        begin_news = self.X.index[index - 1] if index > 0 else self.news.index[0]
+        end_news = self.X.index[index]
+        index_news = (begin_news < self.news.index) & (self.news.index <= end_news)
 
-        return np.array(self.train.iloc[index + self.shift - self.shifts]), \
-               np.array(self.target.iloc[index + self.shift]), \
-               np.array(self.news[index_news]), np.array(self.len_news[index_news]), \
-               np.array(self.titles[index_news]), np.array(self.len_titles[index_news])
+        if index_news.sum() != 0:
+            return np.array(self.X.iloc[index + self.shift - self.shifts]), \
+                   np.array(self.y.iloc[index + self.shift]), \
+                   np.array(self.news[index_news].tolist()), np.array(self.len_news[index_news]), \
+                   np.array(self.titles[index_news].tolist()), np.array(self.len_titles[index_news])
+        else:
+            return np.array(self.X.iloc[index + self.shift - self.shifts]), \
+                   np.array(self.y.iloc[index + self.shift]), \
+                   np.array([self.default_news]), np.array([2]), \
+                   np.array([self.default_title]), np.array([2])
+
+
+def collate_fn(batch):
+    X_batch, y_batch, news, len_news, titles, len_titles = list(zip(*batch))
+
+    return torch.tensor(np.array(X_batch)), torch.tensor(np.array(y_batch)), \
+           news, len_news, titles, len_titles
 
 
 def read_data(data_dir, features_name, targets_name):
@@ -190,7 +222,7 @@ def resample_data(features, targets, period, train_start_date, train_end_date, t
     return features_train, features_test, targets_train, targets_test
 
 
-def scale_data(features_train, features_test, times_columns, indicators_columns):
+def scale_data(features_train, features_test, times_columns, indicators_columns, only_indicators=True):
     scaler = StandardScaler()
 
     features_train = pd.concat(
@@ -212,7 +244,10 @@ def scale_data(features_train, features_test, times_columns, indicators_columns)
         axis=1
     )
 
-    return features_train, features_test
+    if only_indicators:
+        return features_train[indicators_columns], features_test[indicators_columns]
+    else:
+        return features_train, features_test
 
 
 def get_resampled_data(data_dir, period, train_start_date, train_end_date, test_end_date,
@@ -225,23 +260,32 @@ def get_resampled_data(data_dir, period, train_start_date, train_end_date, test_
     return resample_data(features, targets, period, train_start_date, train_end_date, test_end_date, coef)
 
 
-def get_dataloaders(features_train, features_test, targets_train, targets_test, shifts=4*12, batch_size=256):
+def get_dataloaders(features_train, features_test, targets_train, targets_test, shifts=2*12, batch_size=256):
     times_columns = [c for c in features_train.columns if c.startswith('time_')]
     indicators_columns = [c for c in features_train.columns if not c.startswith('time_')]
 
     features_train, features_test = scale_data(features_train, features_test, times_columns, indicators_columns)
 
-    train_dataset = IndicatorsNewsDataset(features_train, targets_train, shifts=shifts)
-    test_dataset = IndicatorsNewsDataset(features_test, targets_test, shifts=shifts)
+    news_train = pd.read_feather(NEWS_DIR / 'news_train.feather').set_index('date')
+    news_test = pd.read_feather(NEWS_DIR / 'news_test.feather').set_index('date')
+
+    vocab = torchtext.vocab.build_vocab_from_iterator(news_train['body'], specials=['<pad>', '<unk>', '<bos>', '<eos>'],
+                                                      min_freq=15)
+    vocab.set_default_index(vocab['<unk>'])
+
+    train_dataset = IndicatorsNewsDataset(features_train, targets_train, shifts=shifts, news=news_train, vocab=vocab)
+    test_dataset = IndicatorsNewsDataset(features_test, targets_test, shifts=shifts, news=news_test, vocab=vocab)
 
     train_dataloader = DataLoader(train_dataset,
                                   batch_size=batch_size,
-                                  shuffle=True)
+                                  shuffle=True,
+                                  collate_fn=collate_fn)
     test_dataloader = DataLoader(test_dataset,
                                  batch_size=batch_size,
-                                 shuffle=False)
+                                 shuffle=False,
+                                 collate_fn=collate_fn)
 
-    return train_dataset, test_dataset, train_dataloader, test_dataloader
+    return train_dataset, test_dataset, train_dataloader, test_dataloader, vocab
 
 
 def get_buy_and_hold_returns(features, dataset):
