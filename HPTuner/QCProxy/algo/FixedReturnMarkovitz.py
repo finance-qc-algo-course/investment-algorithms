@@ -21,6 +21,7 @@ ALGO_HYPERPARAMS = {
     "REBALANCE_PERIOD": 900,
     "TOP_COUNT": 15, # in 1..=46
     "TARGET_RETURN": 0.0028,
+    "TARGET_QUANTILE": 0.8,
     "PREPROC_KIND": None, # {None, 'pca', 'to_norm_pca', 'mppca'}
     "PREPROC_DIMS": 14,
     "PREPROC_PARAMS": {
@@ -98,6 +99,7 @@ class Algorithm(Interface):
 
     def MarkovitzOnEveryPeriod(self):
         prices = self.MarkovitzGetPrices(days=self.WINDOW_SIZE)
+        self.prices = prices
         self.MarkovitzRebalance(prices)
 
     def RegularizeCovarianceMatrix(self, EPS):
@@ -219,6 +221,7 @@ class Algorithm(Interface):
             # data of returns by components
             new_data = prices @ self.components_.to_numpy().T
             optimized_data = pd.DataFrame(data=new_data, columns=np.linspace(1, new_data.shape[1], new_data.shape[1]))
+            self.optimized_data = new_data
             # change mu and sigma
 
             self.mu = optimized_data[optimized_data.columns].mean().to_numpy()
