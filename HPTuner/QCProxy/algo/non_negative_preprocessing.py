@@ -28,34 +28,46 @@ from rpy2.robjects import pandas2ri
 pandas2ri.activate()
 
 def _NPCA_dim_red(X, n_comp, window_size):
-    components_ind = 6
-    new_prices = list()
+    if n_comp > window_size:
+        return X
     
+    try:
+        components_ind = 6
+        new_prices = list()
 
-    for i in range(0, X.shape[0], window_size):
-        obj = nsprcomp.nsprcomp(X[i : i + window_size].T, ncomp=n_comp, center=False, scale=False, nneg=True)
-        new_prices.append(_SVP(obj[components_ind].T))
 
-    new_prices = np.vstack(new_prices)
+        for i in range(0, X.shape[0], window_size):
+            obj = nsprcomp.nsprcomp(X[i : i + window_size].T, ncomp=n_comp, center=False, scale=False, nneg=True)
+            new_prices.append(_SVP(obj[components_ind].T))
 
-    return new_prices
+        new_prices = np.vstack(new_prices)
+
+        return new_prices
+    except Exception as e:
+        return X
 
 
 def _NMF_dim_red(X, n_comp, window_size):
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        
-        new_prices = list()
-        
-        
-        for i in range(0, X.shape[0], window_size):
-            model = NMF_(n_components=n_comp)
-            W = model.fit_transform(X[i : i + window_size].T)
-            new_prices.append(_SVP(W.T))
-
-        new_prices = np.vstack(new_prices)
+    if n_comp > window_size:
+        return X
     
-        return new_prices
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+
+            new_prices = list()
+
+
+            for i in range(0, X.shape[0], window_size):
+                model = NMF_(n_components=n_comp)
+                W = model.fit_transform(X[i : i + window_size].T)
+                new_prices.append(_SVP(W.T))
+
+            new_prices = np.vstack(new_prices)
+
+            return new_prices
+    except Exception as e:
+        return X
 
 
 def _SVP(components):

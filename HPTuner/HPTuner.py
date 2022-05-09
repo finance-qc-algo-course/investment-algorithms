@@ -158,8 +158,8 @@ if __name__ == "__main__":
         'TARGET_RETURN': [0.2], \
         'TARGET_QUANTILE': sps.beta(8, 3), \
         'NPREPROC_KIND': [None, 'npca', 'nmf'], \
-        'NPREPROC_DIMS': [1, 2, 3, 4, 5], \
-        'NPREPROC_FACTOR': [5, 10, 15], \
+        'NPREPROC_DIMS': [2, 3, 4, 5, 10], \
+        'NPREPROC_FACTOR': [5, 10, 15, 20, 30], \
         'PREPROC_KIND': [None, 'pca', 'to_norm_pca', 'mppca', 'to_norm_mppca'], \
         'PREPROC_RATIO': sps.uniform(loc=0.1, scale=0.8), \
         'DIMRED_KIND': [None, 'pca', 'kpca'], # ['pca'], \

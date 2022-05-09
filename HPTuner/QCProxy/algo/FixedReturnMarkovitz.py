@@ -28,8 +28,8 @@ ALGO_HYPERPARAMS = {
     "NPREPROC_FACTOR": 5,
     "NPREPROC_PARAMS": {
         "npca": {
-            "n_comp": 2, # self.NPREPROC_DIMS
-            "window_size": 5, # self.NPREPROC_FACTOR
+            "n_comp": 10, # self.NPREPROC_DIMS
+            "window_size": 30, # self.NPREPROC_FACTOR
         },
         "nmf": {
             "n_comp": 2, # self.NPREPROC_DIMS
