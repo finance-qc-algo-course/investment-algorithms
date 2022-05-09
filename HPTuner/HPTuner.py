@@ -37,7 +37,9 @@ class LocalEstimator(BaseEstimator):
     def __init__(self, metric: BaseScore, data_provider: BaseDataProvider, \
             global_start_date: dttm.date, global_end_date: dttm.date, \
             WINDOW_SIZE=365, REBALANCE_PERIOD=365, TOP_COUNT=15, \
-            TARGET_RETURN=0.0, TARGET_QUANTILE=0.1, PREPROC_KIND=None, PREPROC_RATIO=1.0, \
+            TARGET_RETURN=0.0, TARGET_QUANTILE=0.1, \
+            NPREPROC_KIND=None, NPREPROC_DIMS=2, NPREPROC_FACTOR=5, \
+            PREPROC_KIND=None, PREPROC_RATIO=1.0, \
             DIMRED_KIND=None, DIMRED_RATIO=0.8, THRESHOLD=1e-5):
         super().__init__()
 
@@ -52,6 +54,9 @@ class LocalEstimator(BaseEstimator):
         self.REBALANCE_PERIOD = REBALANCE_PERIOD
         self.TOP_COUNT = TOP_COUNT
         self.TARGET_RETURN = TARGET_RETURN
+        self.NPREPROC_KIND = NPREPROC_KIND
+        self.NPREPROC_DIMS = NPREPROC_DIMS
+        self.NPREPROC_FACTOR = NPREPROC_FACTOR
         self.PREPROC_KIND = PREPROC_KIND
         self.PREPROC_RATIO = PREPROC_RATIO
         self.DIMRED_KIND = DIMRED_KIND
@@ -66,10 +71,15 @@ class LocalEstimator(BaseEstimator):
         hyperparams["TOP_COUNT"] = self.TOP_COUNT # in 1..=36
         hyperparams["TARGET_RETURN"] = self.TARGET_RETURN
         hyperparams["TARGET_QUANTILE"] = self.TARGET_QUANTILE
+        # {None, 'npca', 'nmf'}
+        hyperparams["NPREPROC_KIND"] = self.NPREPROC_KIND
         # {None, 'pca', 'to_norm_pca', 'mppca', 'to_norm_mppca'}
         hyperparams["PREPROC_KIND"] = self.PREPROC_KIND
         # {None, 'pca', 'kpca', 'mcd'}
         hyperparams["DIMRED_KIND"] = self.DIMRED_KIND
+
+        hyperparams["NPREPROC_DIMS"] = self.NPREPROC_DIMS
+        hyperparams["NPREPROC_FACTOR"] = self.NPREPROC_FACTOR
 
         if self.PREPROC_RATIO <= 1:
             hyperparams["PREPROC_DIMS"] = int(self.TOP_COUNT * self.PREPROC_RATIO)
@@ -79,6 +89,16 @@ class LocalEstimator(BaseEstimator):
         hyperparams["DIMRED_DIMS"] = int(self.TOP_COUNT * self.DIMRED_RATIO)
         hyperparams["THRESHOLD"] = self.THRESHOLD
 
+        hyperparams["NPREPROC_PARAMS"] = {
+                'npca': {
+                    'n_comp': hyperparams["NPREPROC_DIMS"],
+                    'window_size': hyperparams["NPREPROC_FACTOR"],
+                },
+                'nmf': {
+                    'n_comp': hyperparams["NPREPROC_DIMS"],
+                    'window_size': hyperparams["NPREPROC_FACTOR"],
+                },
+            }
         hyperparams["PREPROC_PARAMS"] = {
                 'pca': {
                     'kept_components': hyperparams["PREPROC_DIMS"],
@@ -137,6 +157,9 @@ if __name__ == "__main__":
         'TOP_COUNT': np.linspace(15, 36, 22, dtype=int), \
         'TARGET_RETURN': [0.2], \
         'TARGET_QUANTILE': sps.beta(8, 3), \
+        'NPREPROC_KIND': [None, 'npca', 'nmf'], \
+        'NPREPROC_DIMS': [2, 3, 4, 5, 10], \
+        'NPREPROC_FACTOR': [5, 10, 15, 20, 30], \
         'PREPROC_KIND': [None, 'pca', 'to_norm_pca', 'mppca', 'to_norm_mppca'], \
         'PREPROC_RATIO': sps.uniform(loc=0.1, scale=0.8), \
         'DIMRED_KIND': [None, 'pca', 'kpca'], # ['pca'], \

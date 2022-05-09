@@ -3,8 +3,8 @@ from sklearn import preprocessing
 from sklearn.decomposition import PCA
 import scipy.stats as sps
 
-from mppca import MPPCA
-from probabilistic_transformations import laplace_to_norm
+from .mppca import MPPCA
+from .probabilistic_transformations import laplace_to_norm
 
 
 def PCA_preprocessing(returns: np.ndarray, kept_components: int):

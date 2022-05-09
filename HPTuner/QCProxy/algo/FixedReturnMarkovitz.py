@@ -2,6 +2,7 @@ from ..Interface import Interface
 
 from . import custom_tickers
 from . import cov_matrix_preprocessing
+from . import non_negative_preprocessing
 
 import numpy as np
 import cvxpy as cp
@@ -21,6 +22,20 @@ ALGO_HYPERPARAMS = {
     "REBALANCE_PERIOD": 900,
     "TOP_COUNT": 15, # in 1..=46
     "TARGET_RETURN": 0.0028,
+    "TARGET_QUANTILE": 1,
+    "NPREPROC_KIND": 'npca', # {None, 'npca', 'nmf'}
+    "NPREPROC_DIMS": 2,
+    "NPREPROC_FACTOR": 5,
+    "NPREPROC_PARAMS": {
+        "npca": {
+            "n_comp": 10, # self.NPREPROC_DIMS
+            "window_size": 30, # self.NPREPROC_FACTOR
+        },
+        "nmf": {
+            "n_comp": 2, # self.NPREPROC_DIMS
+            "window_size": 5, # self.NPREPROC_FACTOR
+        },
+    },
     "PREPROC_KIND": None, # {None, 'pca', 'to_norm_pca', 'mppca'}
     "PREPROC_DIMS": 14,
     "PREPROC_PARAMS": {
@@ -35,7 +50,7 @@ ALGO_HYPERPARAMS = {
             "n_models": 2,
         },
     },
-    "DIMRED_KIND": 'kpca', # {None, 'pca', 'kpca', 'mcd'}
+    "DIMRED_KIND": 'pca', # {None, 'pca', 'kpca', 'mcd'}
     "DIMRED_DIMS": 8,
     "DIMRED_PARAMS": {
         "pca": {
@@ -73,6 +88,11 @@ class Algorithm(Interface):
         self.TOP_COUNT = hyperparams["TOP_COUNT"] # in 1..=36
         self.TARGET_RETURN = hyperparams["TARGET_RETURN"]
         self.TARGET_QUANTILE = hyperparams["TARGET_QUANTILE"]
+        # {None, 'npca', 'nmf'}
+        self.NPREPROC_KIND = hyperparams["NPREPROC_KIND"]
+        self.NPREPROC_DIMS = hyperparams["NPREPROC_DIMS"]
+        self.NPREPROC_FACTOR = hyperparams["NPREPROC_FACTOR"]
+        self.NPREPROC_PARAMS = hyperparams["NPREPROC_PARAMS"]
         # {None, 'pca', 'to_norm_pca', 'mppca'}
         self.PREPROC_KIND = hyperparams["PREPROC_KIND"]
         self.PREPROC_DIMS = hyperparams["PREPROC_DIMS"]
@@ -104,10 +124,11 @@ class Algorithm(Interface):
         self.sigma = self.sigma + np.eye(self.sigma.shape[0]) * EPS
 
     def MarkovitzRebalance(self, prices):
-        prices = prices.T
-        self.MarkovitzUpdateParams(prices)
-        prices = self.MarkovitzPreprocess(prices, kind=self.PREPROC_KIND)
-        self.MarkovitzReduceDimensions(prices, kind=self.DIMRED_KIND)
+        prices = self.MarkovitzNPreprocess(prices.T, kind=self.NPREPROC_KIND)
+        returns = self.MarkovitzGetReturns(prices.T).T
+        self.MarkovitzUpdateParams(returns)
+        self.MarkovitzPreprocess(returns, kind=self.PREPROC_KIND)
+        self.MarkovitzReduceDimensions(returns, kind=self.DIMRED_KIND)
         self.SetFixedReturn()
         self.RegularizeCovarianceMatrix(1e-8)
         self.MarkovitzOptimize(self.THRESHOLD)
@@ -149,13 +170,14 @@ class Algorithm(Interface):
                         (hist.loc[s].index for s in symbols))
 
         prices = np.array([ \
-                ((hist.loc[s].loc[idx]['open'].to_numpy()[1:] - \
-                  hist.loc[s].loc[idx]['open'].to_numpy()[:-1]) \
-                  / hist.loc[s].loc[idx]['open'].to_numpy()[:-1]) \
+                hist.loc[s].loc[idx]['open'].to_numpy() \
                 for s in symbols \
-                ])
-
+            ])
         return prices
+
+    def MarkovitzGetReturns(self, prices):
+        returns = np.divide(prices[:,1:] - prices[:,:-1], prices[:,:-1])
+        return returns
 
     def SetFixedReturn(self):
         # TODO: adjust quantiles
@@ -168,6 +190,21 @@ class Algorithm(Interface):
             self.fixed_return = np.quantile(self.mu, 0.9)
         else:
             self.fixed_return = 1.0 + self.TARGET_RETURN
+
+    def MarkovitzNPreprocess(self, prices, kind=None):
+        if kind is None:
+            pass # keep `prices` untouched
+        elif kind == 'npca':
+            prices = non_negative_preprocessing \
+                ._NPCA_dim_red(prices, **self.NPREPROC_PARAMS["npca"])
+        elif kind == 'nmf':
+            prices = non_negative_preprocessing \
+                ._NMF_dim_red(prices, **self.NPREPROC_PARAMS["nmf"])
+        else:
+            raise ValueError('{} is not a valid nonnegative preprocessing kind'\
+                    .format(str(kind)))
+
+        return prices
 
     def MarkovitzUpdateParams(self, prices):
         self.mu = np.mean(prices.T, axis=-1)
@@ -189,10 +226,8 @@ class Algorithm(Interface):
             self.sigma = cov_matrix_preprocessing \
                 .MPPCA_preprocessing(prices, **self.PREPROC_PARAMS["to_norm_mppca"])
         else:
-            raise ValueError('{} is not a valid price preprocessing kind'\
+            raise ValueError('{} is not a valid preprocessing kind'\
                     .format(str(kind)))
-
-        return prices
 
     def MarkovitzReduceDimensions(self, prices, kind=None):
         if kind is None:
