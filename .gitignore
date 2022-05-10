@@ -4,3 +4,6 @@ catboost_info
 __pycache__
 .idea
 /data
+build/
+dist/
+*.egg-info/
