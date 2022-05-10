@@ -56,11 +56,10 @@ class Launcher(BaseLauncher):
                 ALGO_HYPERPARAMS)
         pass
 
-if __name__ == "__main__":
+def test_return():
     annual_r = 0.20
     daily_r = (1.0 + annual_r) ** (1.0 / BaseScore.TRADE_DAYS) - 1.0
     returns = np.linspace(daily_r * 0.5, daily_r * 1.5, num=len(ALGO_TICKERS))
-
     data_provider = MockDataProvider(ALGO_TICKERS, returns, \
             ALGO_START_DATE, ALGO_END_DATE)
 
@@ -69,8 +68,19 @@ if __name__ == "__main__":
     print("AnnualReturnScore = {}".format(value))
     assert value > annual_r * 0.8 and value < annual_r * 1.25
 
+def test_sharpe():
+    annual_r = 0.20
+    daily_r = (1.0 + annual_r) ** (1.0 / BaseScore.TRADE_DAYS) - 1.0
+    returns = np.linspace(daily_r * 0.5, daily_r * 1.5, num=len(ALGO_TICKERS))
+    data_provider = MockDataProvider(ALGO_TICKERS, returns, \
+            ALGO_START_DATE, ALGO_END_DATE)
+
     launcher = Launcher(SimpleSharpeScore(), data_provider)
     value = launcher.Run(False)
     assert value > 0.0
     print("SimpleSharpeScore = {}".format(value))
+
+if __name__ == "__main__":
+    test_return()
+    test_sharpe()
 
