@@ -23,7 +23,7 @@ ALGO_HYPERPARAMS = {
     "TOP_COUNT": 15, # in 1..=46
     "TARGET_RETURN": 0.0028,
     "TARGET_QUANTILE": 1,
-    "NPREPROC_KIND": 'npca', # {None, 'npca', 'nmf'}
+    "NPREPROC_KIND": None, # {None, 'npca', 'nmf'}
     "NPREPROC_DIMS": 2,
     "NPREPROC_FACTOR": 5,
     "NPREPROC_PARAMS": {
@@ -194,9 +194,9 @@ class Algorithm(Interface):
     def MarkovitzNPreprocess(self, prices, kind=None):
         if kind is None:
             pass # keep `prices` untouched
-        elif kind == 'npca':
-            prices = non_negative_preprocessing \
-                ._NPCA_dim_red(prices, **self.NPREPROC_PARAMS["npca"])
+        # elif kind == 'npca':
+        #     prices = non_negative_preprocessing \
+        #         ._NPCA_dim_red(prices, **self.NPREPROC_PARAMS["npca"])
         elif kind == 'nmf':
             prices = non_negative_preprocessing \
                 ._NMF_dim_red(prices, **self.NPREPROC_PARAMS["nmf"])

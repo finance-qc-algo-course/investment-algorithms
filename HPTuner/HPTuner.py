@@ -40,7 +40,8 @@ class LocalEstimator(BaseEstimator):
             TARGET_RETURN=0.0, TARGET_QUANTILE=0.1, \
             NPREPROC_KIND=None, NPREPROC_DIMS=2, NPREPROC_FACTOR=5, \
             PREPROC_KIND=None, PREPROC_RATIO=1.0, \
-            DIMRED_KIND=None, DIMRED_RATIO=0.8, THRESHOLD=1e-5):
+            DIMRED_KIND=None, DIMRED_RATIO=0.8, THRESHOLD=1e-5, DIMRED_KERNEL='poly',
+            DIMRED_KERNEL_GAMMA= 0.02, DIMRED_KERNEL_COEF0=0.5, DIMRED_KERNEL_DEGREE=2):
         super().__init__()
 
         self.global_start_date = global_start_date
@@ -63,6 +64,10 @@ class LocalEstimator(BaseEstimator):
         self.DIMRED_RATIO = DIMRED_RATIO
         self.THRESHOLD = THRESHOLD
         self.TARGET_QUANTILE = TARGET_QUANTILE
+        self.DIMRED_KERNEL = DIMRED_KERNEL
+        self.DIMRED_KERNEL_GAMMA = DIMRED_KERNEL_GAMMA
+        self.DIMRED_KERNEL_COEF0 = DIMRED_KERNEL_COEF0
+        self.DIMRED_KERNEL_DEGREE = DIMRED_KERNEL_DEGREE
 
     def BuildHyperparams(self):
         hyperparams = {}
@@ -77,6 +82,10 @@ class LocalEstimator(BaseEstimator):
         hyperparams["PREPROC_KIND"] = self.PREPROC_KIND
         # {None, 'pca', 'kpca', 'mcd'}
         hyperparams["DIMRED_KIND"] = self.DIMRED_KIND
+        hyperparams['DIMRED_KERNEL'] = self.DIMRED_KERNEL
+        hyperparams['DIMRED_KERNEL_GAMMA'] = self.DIMRED_KERNEL_GAMMA
+        hyperparams['DIMRED_KERNEL_COEF0'] = self.DIMRED_KERNEL_COEF0
+        hyperparams['DIMRED_KERNEL_DEGREE'] = self.DIMRED_KERNEL_DEGREE
 
         hyperparams["NPREPROC_DIMS"] = self.NPREPROC_DIMS
         hyperparams["NPREPROC_FACTOR"] = self.NPREPROC_FACTOR
@@ -121,7 +130,10 @@ class LocalEstimator(BaseEstimator):
                 },
                 'kpca': {
                     'n_components': hyperparams["DIMRED_DIMS"],
-                    'kernel': 'poly',
+                    'kernel': hyperparams['DIMRED_KERNEL'],
+                    'gamma': hyperparams['DIMRED_KERNEL_GAMMA'],
+                    'coef0': hyperparams['DIMRED_KERNEL_COEF0'],
+                    'degree': hyperparams['DIMRED_KERNEL_DEGREE']
                 },
                 'mcd': {},
             }
@@ -152,18 +164,22 @@ class LocalEstimator(BaseEstimator):
 
 if __name__ == "__main__":
     params_grid = { \
-        'WINDOW_SIZE': [300, 450, 600, 750], \
-        'REBALANCE_PERIOD': [150, 300, 450, 600, 750, 900], \
-        'TOP_COUNT': np.linspace(15, 36, 22, dtype=int), \
-        'TARGET_RETURN': [0.2], \
+        'WINDOW_SIZE': [150, 300, 450, 600, 750], \
+        'REBALANCE_PERIOD': [90, 150, 300, 450, 600, 750, 900], \
+        'TOP_COUNT': [20, 25, 30], \
+        'TARGET_RETURN': np.linspace(0.001, 0.003, 21), \
         'TARGET_QUANTILE': sps.beta(8, 3), \
-        'NPREPROC_KIND': [None, 'npca', 'nmf'], \
+        'NPREPROC_KIND': [None, 'nmf'], \
         'NPREPROC_DIMS': [2, 3, 4, 5, 10], \
         'NPREPROC_FACTOR': [5, 10, 15, 20, 30], \
         'PREPROC_KIND': [None, 'pca', 'to_norm_pca', 'mppca', 'to_norm_mppca'], \
         'PREPROC_RATIO': sps.uniform(loc=0.1, scale=0.8), \
-        'DIMRED_KIND': [None, 'pca', 'kpca'], # ['pca'], \
+        'DIMRED_KIND': ['kpca'], # ['pca'], \
         'DIMRED_RATIO': sps.uniform(loc=0.1, scale=0.8), \
+        "DIMRED_KERNEL": ['poly', 'rbf'],
+        'DIMRED_KERNEL_GAMMA': np.linspace(0.02, 0.04, 31).tolist(),
+        'DIMRED_KERNEL_COEF0': np.linspace(0.5, 1, 51),
+        'DIMRED_KERNEL_DEGREE': np.linspace(2, 4, 3, dtype=int)
     }
     max_window = max(params_grid['WINDOW_SIZE']) + 1
     metric = SharpeRatioScore(risk_free=0.0)
@@ -179,10 +195,10 @@ if __name__ == "__main__":
             estimator=runner, \
             param_distributions=params_grid, \
             cv=tscv, \
-            n_iter=1000,
-            random_state=15,
+            n_iter=2000,
+            random_state=16,
             n_jobs=-2,
-            # verbose=2
+            verbose=1
     )
 
     data = pd.date_range(start=ALGO_START_DATE, end=ALGO_END_DATE)
