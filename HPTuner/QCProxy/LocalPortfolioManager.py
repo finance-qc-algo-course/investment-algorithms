@@ -4,11 +4,12 @@ from .LocalLauncher import BaseLauncher
 import numpy as np
 from typing import List
 
+
 class LocalPortfolioManager(PortfolioManager):
     def __init__(self, world: BaseLauncher):
         super().__init__()
         self.world = world
-    
+
     def SetCash(self, cash: int):
         self.world.InitializeCash(cash)
 
@@ -23,4 +24,3 @@ class LocalPortfolioManager(PortfolioManager):
 
     def Ready(self) -> bool:
         return self.world is not None
-

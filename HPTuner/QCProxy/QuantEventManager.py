@@ -3,6 +3,7 @@ from BaseEventManager import EventManager
 import datetime as dttm
 from typing import Callable, Type
 
+
 class QuantConnectEventManager(EventManager):
     def __init__(self, world: QCAlgorithm):
         super().__init__()
@@ -13,13 +14,14 @@ class QuantConnectEventManager(EventManager):
     def SetStartEnd(self, start_date: dttm.date, end_date: dttm.date):
         assert not self.Ready()
         self.start_date = start_date
-        self.world.SetStartDate(start_date.year, start_date.month, start_date.day)
+        self.world.SetStartDate(
+            start_date.year, start_date.month, start_date.day)
         self.world.SetEndDate(end_date.year, end_date.month, end_date.day)
-        self.world.Schedule.On(self.world.DateRules.EveryDay(), \
-                               self.world.TimeRules.At(0, 0), \
+        self.world.Schedule.On(self.world.DateRules.EveryDay(),
+                               self.world.TimeRules.At(0, 0),
                                self.OnEveryDay)
-    
-    def SetCallback(self, callback: Callable[[], None], \
+
+    def SetCallback(self, callback: Callable[[], None],
                     period_days: int):
         self.callbacks.append((period_days, callback))
 
@@ -28,11 +30,10 @@ class QuantConnectEventManager(EventManager):
 
     def Ready(self) -> bool:
         return self.world is not None and \
-                self.start_date is not None
+            self.start_date is not None
 
     def OnEveryDay(self):
         elapsed = (self.GetCurrentDate() - self.start_date).days
         for period, cb in self.callbacks:
             if elapsed % period == 0:
                 cb()
-

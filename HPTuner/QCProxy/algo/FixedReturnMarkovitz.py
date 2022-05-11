@@ -20,37 +20,37 @@ from typing import List
 ALGO_HYPERPARAMS = {
     "WINDOW_SIZE": 735,
     "REBALANCE_PERIOD": 900,
-    "TOP_COUNT": 15, # in 1..=46
+    "TOP_COUNT": 15,  # in 1..=46
     "TARGET_RETURN": 0.0028,
     "TARGET_QUANTILE": 1,
-    "NPREPROC_KIND": 'npca', # {None, 'npca', 'nmf'}
+    "NPREPROC_KIND": 'npca',  # {None, 'npca', 'nmf'}
     "NPREPROC_DIMS": 2,
     "NPREPROC_FACTOR": 5,
     "NPREPROC_PARAMS": {
         "npca": {
-            "n_comp": 10, # self.NPREPROC_DIMS
-            "window_size": 30, # self.NPREPROC_FACTOR
+            "n_comp": 10,  # self.NPREPROC_DIMS
+            "window_size": 30,  # self.NPREPROC_FACTOR
         },
         "nmf": {
-            "n_comp": 2, # self.NPREPROC_DIMS
-            "window_size": 5, # self.NPREPROC_FACTOR
+            "n_comp": 2,  # self.NPREPROC_DIMS
+            "window_size": 5,  # self.NPREPROC_FACTOR
         },
     },
-    "PREPROC_KIND": None, # {None, 'pca', 'to_norm_pca', 'mppca'}
+    "PREPROC_KIND": None,  # {None, 'pca', 'to_norm_pca', 'mppca'}
     "PREPROC_DIMS": 14,
     "PREPROC_PARAMS": {
         "pca": {
-            "kept_components": 14, # self.PREPROC_DIMS,
+            "kept_components": 14,  # self.PREPROC_DIMS,
         },
         "to_norm_pca": {
-            "kept_components": 14, # self.PREPROC_DIMS,
+            "kept_components": 14,  # self.PREPROC_DIMS,
         },
         "mppca": {
-            "kept_components": 14, # self.PREPROC_DIMS,
+            "kept_components": 14,  # self.PREPROC_DIMS,
             "n_models": 2,
         },
     },
-    "DIMRED_KIND": 'pca', # {None, 'pca', 'kpca', 'mcd'}
+    "DIMRED_KIND": 'pca',  # {None, 'pca', 'kpca', 'mcd'}
     "DIMRED_DIMS": 8,
     "DIMRED_PARAMS": {
         "pca": {
@@ -65,27 +65,29 @@ ALGO_HYPERPARAMS = {
     "THRESHOLD": 1e-5,
 }
 
-ALGO_TICKERS = custom_tickers.get_custom_top_tickers(ALGO_HYPERPARAMS["TOP_COUNT"])
+ALGO_TICKERS = custom_tickers.get_custom_top_tickers(
+    ALGO_HYPERPARAMS["TOP_COUNT"])
 ALGO_START_DATE = dttm.date(2006, 1, 1)
 ALGO_END_DATE = dttm.date(2014, 1, 1)
 ALGO_LOOKBACK = ALGO_HYPERPARAMS["WINDOW_SIZE"]
 ALGO_CASH = 100000
 
+
 class Algorithm(Interface):
-    def __init__(self, portfolio_manager, history_manager, event_manager, \
-                 cash: int, tickers: List[str], \
-                 start_date: dttm.date, end_date: dttm.date, lookback: int, \
+    def __init__(self, portfolio_manager, history_manager, event_manager,
+                 cash: int, tickers: List[str],
+                 start_date: dttm.date, end_date: dttm.date, lookback: int,
                  hyperparams=ALGO_HYPERPARAMS):
-        super().__init__( \
-                portfolio_manager, history_manager, event_manager, \
-                cash, tickers, start_date, end_date, lookback)
+        super().__init__(
+            portfolio_manager, history_manager, event_manager,
+            cash, tickers, start_date, end_date, lookback)
         self.InitializeHyperparams(hyperparams)
         self.InitializeAlgorithm()
 
     def InitializeHyperparams(self, hyperparams):
         self.WINDOW_SIZE = hyperparams["WINDOW_SIZE"]
         self.REBALANCE_PERIOD = hyperparams["REBALANCE_PERIOD"]
-        self.TOP_COUNT = hyperparams["TOP_COUNT"] # in 1..=36
+        self.TOP_COUNT = hyperparams["TOP_COUNT"]  # in 1..=36
         self.TARGET_RETURN = hyperparams["TARGET_RETURN"]
         self.TARGET_QUANTILE = hyperparams["TARGET_QUANTILE"]
         # {None, 'npca', 'nmf'}
@@ -143,18 +145,18 @@ class Algorithm(Interface):
         # XXX sum_weight = np.sum(self.weights)
         # XXX self.weights = np.divide(self.weights, sum_weight)
         w = cp.Variable(self.sigma.shape[0])
-        objective = cp.Minimize(cp.quad_form(w, self.sigma)) # * 0.5
-        constraints = [ \
-                w.T >= 0.0, \
-                w.T @ np.ones(self.sigma.shape[0]) == 1.0, \
-                w.T @ self.mu == self.fixed_return, \
-            ]
+        objective = cp.Minimize(cp.quad_form(w, self.sigma))  # * 0.5
+        constraints = [
+            w.T >= 0.0,
+            w.T @ np.ones(self.sigma.shape[0]) == 1.0,
+            w.T @ self.mu == self.fixed_return,
+        ]
 
         prob = cp.Problem(objective, constraints)
         try:
             prob.solve(solver='SCS')
-        except:
-            warnings.warn('''SolverError: solver can't solve this task. 
+        except Exception:
+            warnings.warn('''SolverError: solver can't solve this task.
                 Trying to solve with another solver''')
             prob.solve(solver='CVXOPT')
 
@@ -166,17 +168,17 @@ class Algorithm(Interface):
         days = days or self.WINDOW_SIZE
         hist = self.GetHistory(self.GetTickers(), days)
         symbols = np.unique(hist.index.get_level_values(0).to_numpy())
-        idx = functools.reduce(np.intersect1d, \
-                        (hist.loc[s].index for s in symbols))
+        idx = functools.reduce(np.intersect1d,
+                               (hist.loc[s].index for s in symbols))
 
-        prices = np.array([ \
-                hist.loc[s].loc[idx]['open'].to_numpy() \
-                for s in symbols \
-            ])
+        prices = np.array([
+            hist.loc[s].loc[idx]['open'].to_numpy()
+            for s in symbols
+        ])
         return prices
 
     def MarkovitzGetReturns(self, prices):
-        returns = np.divide(prices[:,1:] - prices[:,:-1], prices[:,:-1])
+        returns = np.divide(prices[:, 1:] - prices[:, :-1], prices[:, :-1])
         return returns
 
     def SetFixedReturn(self):
@@ -193,7 +195,7 @@ class Algorithm(Interface):
 
     def MarkovitzNPreprocess(self, prices, kind=None):
         if kind is None:
-            pass # keep `prices` untouched
+            pass  # keep `prices` untouched
         elif kind == 'npca':
             prices = non_negative_preprocessing \
                 ._NPCA_dim_red(prices, **self.NPREPROC_PARAMS["npca"])
@@ -201,8 +203,8 @@ class Algorithm(Interface):
             prices = non_negative_preprocessing \
                 ._NMF_dim_red(prices, **self.NPREPROC_PARAMS["nmf"])
         else:
-            raise ValueError('{} is not a valid nonnegative preprocessing kind'\
-                    .format(str(kind)))
+            raise ValueError('{} is not a valid nonnegative preprocessing kind'
+                             .format(str(kind)))
 
         return prices
 
@@ -212,7 +214,7 @@ class Algorithm(Interface):
 
     def MarkovitzPreprocess(self, prices, kind=None):
         if kind is None:
-            pass # keep `prices` untouched
+            pass  # keep `prices` untouched
         elif kind == 'pca':
             self.sigma = cov_matrix_preprocessing \
                 .PCA_preprocessing(prices, **self.PREPROC_PARAMS["pca"])
@@ -226,12 +228,12 @@ class Algorithm(Interface):
             self.sigma = cov_matrix_preprocessing \
                 .MPPCA_preprocessing(prices, **self.PREPROC_PARAMS["to_norm_mppca"])
         else:
-            raise ValueError('{} is not a valid preprocessing kind'\
-                    .format(str(kind)))
+            raise ValueError('{} is not a valid preprocessing kind'
+                             .format(str(kind)))
 
     def MarkovitzReduceDimensions(self, prices, kind=None):
         if kind is None:
-            pass # keep `self.sigma` untouched
+            pass  # keep `self.sigma` untouched
         elif kind == 'pca' or kind == 'kpca':
             if kind == 'pca':
                 if self.DIMRED_PARAMS["pca"]['n_components'] >= self.sigma.shape[0]:
@@ -248,12 +250,15 @@ class Algorithm(Interface):
             self.components_ = pd.DataFrame(self.components_)
             # remove components less that zero
             self.components_[self.components_ < 0] = 0
-            # rebalance componets, so their sum is 1 now 
-            self.components_ = self.components_.div(self.components_.sum(axis=1), axis=0)
-            self.components_.fillna(1 / len(self.components_.columns.to_numpy()), inplace=True)
+            # rebalance componets, so their sum is 1 now
+            self.components_ = self.components_.div(
+                self.components_.sum(axis=1), axis=0)
+            self.components_.fillna(
+                1 / len(self.components_.columns.to_numpy()), inplace=True)
             # data of returns by components
             new_data = prices @ self.components_.to_numpy().T
-            optimized_data = pd.DataFrame(data=new_data, columns=np.linspace(1, new_data.shape[1], new_data.shape[1]))
+            optimized_data = pd.DataFrame(data=new_data, columns=np.linspace(
+                1, new_data.shape[1], new_data.shape[1]))
             # change mu and sigma
 
             self.mu = optimized_data[optimized_data.columns].mean().to_numpy()
@@ -263,5 +268,5 @@ class Algorithm(Interface):
             mcd.fit(prices)
             self.sigma = mcd.covariance_
         else:
-            raise ValueError('{} is not+ a valid dimension reduction kind'\
-                    .format(str(kind)))
+            raise ValueError('{} is not+ a valid dimension reduction kind'
+                             .format(str(kind)))

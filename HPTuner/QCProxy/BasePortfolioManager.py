@@ -2,10 +2,11 @@ import abc
 import numpy as np
 from typing import List
 
+
 class PortfolioManager(abc.ABC):
     def __init__(self):
         pass
-    
+
     @abc.abstractmethod
     def SetCash(self, cash: int):
         pass

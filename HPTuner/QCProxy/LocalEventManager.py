@@ -4,6 +4,7 @@ from .LocalLauncher import BaseLauncher
 import datetime as dttm
 from typing import Callable, Type
 
+
 class LocalEventManager(EventManager):
     def __init__(self, world: BaseLauncher):
         super().__init__()
@@ -11,8 +12,8 @@ class LocalEventManager(EventManager):
 
     def SetStartEnd(self, start_date: dttm.date, end_date: dttm.date):
         self.world.InitializeStartEnd(start_date, end_date)
-    
-    def SetCallback(self, callback: Callable[[], None], \
+
+    def SetCallback(self, callback: Callable[[], None],
                     period_days: int):
         self.world.SetCallback(callback, period_days)
 
@@ -21,4 +22,3 @@ class LocalEventManager(EventManager):
 
     def Ready(self) -> bool:
         return self.world is not None
-
