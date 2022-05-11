@@ -22,7 +22,7 @@ pipeline {
 			parallel {
 				stage('Linter') {
 					steps {
-						sh '`cat activate_cmd` && python3 -m flake8 HPTuner/'
+						sh '`cat activate_cmd` && python3 -m pycodestyle --max-line-length=120 HPTuner/'
 					}
 				}
 				stage('Tester') {

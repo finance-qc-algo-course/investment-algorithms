@@ -3,5 +3,5 @@ numpy
 cvxpy
 pandas
 scikit-learn
-flake8
+pycodestyle
 pytest
