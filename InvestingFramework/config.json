@@ -1,0 +1,12 @@
+{
+    "train_tickers": ["AAPL", "TSLA"],
+    "test_tickers": ["GOOG"],
+
+    "train_from_date": "2020-01-01",
+    "train_to_date": "2022-09-01",
+    "test_from_date": "2020-09-01",
+    "test_to_date": "2020-10-01",
+
+    "backtest_comission": 0.003,
+    "backtest_initial_cash": 10000
+}

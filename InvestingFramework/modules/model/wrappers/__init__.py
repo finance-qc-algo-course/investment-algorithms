@@ -1,0 +1,1 @@
+from .SimpleIndicatorsModel import SimpleIndicatorsModel
