@@ -3,6 +3,8 @@ catboost_info
 .DS_Store
 __pycache__
 .idea
+.vscode
+api_token.txt
 /data
 build/
 dist/
