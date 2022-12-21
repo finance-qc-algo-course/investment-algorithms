@@ -11,5 +11,11 @@ class ModelAlgorithm(SignalStrategy):
         self.sequence_len = sequence_len
 
     def next(self):
-        if self.model.predict(self.preprocessor(self.data[-self.sequence_len:])) > 0:
+        if self.predict(self.preprocessor(self.data[-self.sequence_len:])) > 0:
             self.buy()
+
+    def predict(self):
+        return self.model.predict(self.preprocess())
+    
+    def preprocess(self):
+        return self.preprocessor(self.data[-self.sequence_len:])
